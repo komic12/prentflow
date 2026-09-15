@@ -1,0 +1,80 @@
+const express = require('express');
+const db = require('../db/database');
+const { requireRole } = require('../middleware/auth');
+const { publicUser } = require('../db/helpers');
+
+const router = express.Router();
+router.use(requireRole('admin'));
+
+// ── List all cafe owners with their order stats ──────────────────────
+router.get('/owners', async (req, res) => {
+    try {
+        const owners = await db.listOwners();
+        const result = await Promise.all(owners.map(async owner => {
+            const stats = await db.getOwnerStats(owner.id);
+            return { ...publicUser(owner), ...stats };
+        }));
+        res.json({ owners: result });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Could not load owners.' });
+    }
+});
+
+// ── Set owner status (Active / Suspended) ────────────────────────────
+router.patch('/owners/:id/status', async (req, res) => {
+    try {
+        const { status } = req.body;
+        if (!['Active', 'Suspended'].includes(status)) return res.status(400).json({ error: 'Invalid status.' });
+        await db.updateOwnerStatus(req.params.id, status);
+        res.json({ ok: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Could not update owner status.' });
+    }
+});
+
+// ── Set/update owner subscription plan ───────────────────────────────
+router.patch('/owners/:id/subscription', async (req, res) => {
+    try {
+        const { plan, active, expiry } = req.body;
+        if (!['Plan_A', 'Plan_B'].includes(plan)) return res.status(400).json({ error: 'Invalid plan.' });
+        await db.updateOwnerSubscription(req.params.id, plan, active, expiry);
+        res.json({ ok: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Could not update subscription.' });
+    }
+});
+
+// ── Delete an owner (cascades to their services/orders) ──────────────
+router.delete('/owners/:id', async (req, res) => {
+    try {
+        const owner = await db.findOwnerById(req.params.id);
+        if (!owner) return res.status(404).json({ error: 'Owner not found.' });
+        await db.deleteOwner(req.params.id);
+        res.json({ ok: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Could not delete owner.' });
+    }
+});
+
+// ── All orders platform-wide (Jobs tab) ──────────────────────────────
+router.get('/orders', async (req, res) => {
+    try {
+        const rows = await db.listAllOrders();
+        const owners = await db.getOwnersByIds([...new Set(rows.map(r => r.owner_id))]);
+        const orders = rows.map(order => ({
+            ...order,
+            shop_name: owners[order.owner_id]?.shop_name || null,
+            subscription_plan: owners[order.owner_id]?.subscription_plan || null
+        }));
+        res.json({ orders });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Could not load orders.' });
+    }
+});
+
+module.exports = router;

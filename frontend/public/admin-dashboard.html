@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PrintFlow – Admin Vault</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/all.min.css">
+    <style>
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .nav-item.active {
+            background: #2563eb !important;
+            color: #fff !important;
+        }
+        
+        .status-pill {
+            font-size: .62rem;
+            font-weight: 700;
+            padding: 2px 9px;
+            border-radius: 999px;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            display: inline-block;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-100 min-h-screen">
+
+    <div id="sub-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4">
+        <div onclick="closeSubModal()" class="absolute inset-0 bg-black/60"></div>
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-7 z-10">
+            <button onclick="closeSubModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 text-lg"><i class="fas fa-times"></i></button>
+            <h3 class="text-lg font-bold text-slate-800 mb-5 flex items-center gap-2"><i class="fas fa-medal text-purple-600"></i> Manage Subscription</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Subscription Plan</label>
+                    <select id="sub-plan" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white">
+          <option value="Plan_A">Plan A – Free (10% platform fee per order)</option>
+          <option value="Plan_B">Plan B – Premium (No platform fee)</option>
+        </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Active?</label>
+                    <select id="sub-active" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white">
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
+        </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Expiry Date</label>
+                    <input type="date" id="sub-expiry" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                </div>
+                <input type="hidden" id="sub-owner-id">
+                <button onclick="saveSubscription()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl transition">Save Subscription</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex min-h-screen">
+
+        <aside class="w-64 bg-slate-900 text-white fixed top-0 left-0 h-full z-40 flex-col hidden lg:flex">
+            <div class="px-6 py-5 border-b border-slate-700">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center flex-shrink-0"><i class="fas fa-shield-halved text-sm"></i></div>
+                    <div>
+                        <p class="font-bold text-sm">PrintFlow</p>
+                        <p class="text-red-400 text-xs">Admin Vault</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div id="sb-avatar" class="w-9 h-9 bg-red-900 rounded-lg flex items-center justify-center text-sm font-bold border border-red-700"></div>
+                    <div class="overflow-hidden">
+                        <p id="sb-name" class="font-semibold text-sm truncate"></p>
+                        <p id="sb-email" class="text-slate-400 text-xs truncate"></p>
+                    </div>
+                </div>
+            </div>
+            <nav class="flex-1 px-4 py-5 space-y-1">
+                <button onclick="showTab('overview')" id="nav-overview" class="nav-item active w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-white transition"><i class="fas fa-gauge-high w-4"></i> Overview</button>
+                <button onclick="showTab('owners')" id="nav-owners" class="nav-item w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition"><i class="fas fa-users w-4"></i> Cyber Owners</button>
+                <button onclick="showTab('financials')" id="nav-financials" class="nav-item w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition"><i class="fas fa-chart-line w-4"></i> Financial Ledger</button>
+                <button onclick="showTab('jobs')" id="nav-jobs" class="nav-item w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition"><i class="fas fa-print w-4"></i> All Print Jobs</button>
+            </nav>
+            <div class="px-4 pb-5">
+                <button onclick="doLogout()" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-red-400 hover:bg-slate-800 text-sm font-medium w-full transition"><i class="fas fa-arrow-right-from-bracket w-4"></i> Sign Out</button>
+            </div>
+        </aside>
+
+        <div class="lg:hidden fixed top-0 left-0 right-0 z-30 bg-slate-900 text-white px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center"><i class="fas fa-shield-halved text-xs"></i></div><span class="font-bold text-sm">Admin Vault</span></div>
+            <button onclick="toggleMobileMenu()" class="w-8 h-8 flex items-center justify-center"><i class="fas fa-bars"></i></button>
+        </div>
+        <div id="mobile-menu" class="lg:hidden fixed inset-0 z-50 hidden">
+            <div onclick="toggleMobileMenu()" class="absolute inset-0 bg-black/60"></div>
+            <div class="absolute left-0 top-0 bottom-0 w-64 bg-slate-900 text-white p-5">
+                <button onclick="toggleMobileMenu()" class="absolute top-4 right-4 text-slate-400 text-lg"><i class="fas fa-times"></i></button>
+                <div class="mt-8 space-y-1">
+                    <button onclick="showTab('overview');toggleMobileMenu()" class="w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-slate-300 hover:bg-slate-800"><i class="fas fa-gauge-high w-4"></i> Overview</button>
+                    <button onclick="showTab('owners');toggleMobileMenu()" class="w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-slate-300 hover:bg-slate-800"><i class="fas fa-users w-4"></i> Cyber Owners</button>
+                    <button onclick="showTab('financials');toggleMobileMenu()" class="w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-slate-300 hover:bg-slate-800"><i class="fas fa-chart-line w-4"></i> Financials</button>
+                    <button onclick="showTab('jobs');toggleMobileMenu()" class="w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-slate-300 hover:bg-slate-800"><i class="fas fa-print w-4"></i> Print Jobs</button>
+                    <button onclick="doLogout()" class="flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 text-sm font-medium mt-4"><i class="fas fa-sign-out w-4"></i> Sign Out</button>
+                </div>
+            </div>
+        </div>
+
+        <main class="flex-1 lg:ml-64 pt-16 lg:pt-0">
+            <div class="max-w-7xl mx-auto px-4 py-6">
+
+                <div id="tab-overview" class="tab-content active">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h1 class="text-2xl font-bold text-slate-800">System Overview</h1>
+                            <p class="text-slate-500 text-sm">PrintFlow global metrics</p>
+                        </div>
+                        <span class="hidden sm:flex items-center gap-2 text-xs bg-red-50 text-red-600 border border-red-200 px-3 py-2 rounded-full font-semibold"><i class="fas fa-shield-halved"></i> Super Admin</span>
+                    </div>
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="w-11 h-11 bg-blue-100 rounded-xl flex items-center justify-center"><i class="fas fa-users text-blue-600"></i></div><span class="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full font-semibold">Total</span></div>
+                            <p id="kpi-users" class="text-3xl font-black text-slate-800">0</p>
+                            <p class="text-xs text-slate-500 mt-1">Registered Cafes</p>
+                        </div>
+                        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="w-11 h-11 bg-green-100 rounded-xl flex items-center justify-center"><i class="fas fa-print text-green-600"></i></div><span class="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full font-semibold">Today</span></div>
+                            <p id="kpi-today-jobs" class="text-3xl font-black text-slate-800">0</p>
+                            <p class="text-xs text-slate-500 mt-1">Print Jobs Today</p>
+                        </div>
+                        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="w-11 h-11 bg-yellow-100 rounded-xl flex items-center justify-center"><i class="fas fa-coins text-yellow-600"></i></div><span class="text-xs text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-full font-semibold">Today</span></div>
+                            <p id="kpi-today-fees" class="text-3xl font-black text-slate-800">KES 0</p>
+                            <p class="text-xs text-slate-500 mt-1">Commission Today</p>
+                        </div>
+                        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="w-11 h-11 bg-red-100 rounded-xl flex items-center justify-center"><i class="fas fa-hourglass-half text-red-600"></i></div>
+                            </div>
+                            <p id="kpi-active-jobs" class="text-3xl font-black text-slate-800">0</p>
+                            <p class="text-xs text-slate-500 mt-1">Active Print Jobs</p>
+                        </div>
+                    </div>
+                    <div class="bg-gradient-to-r from-slate-900 to-blue-900 rounded-2xl p-6 mb-6 text-white">
+                        <div class="flex items-center gap-2 mb-5"><i class="fas fa-chart-line text-blue-400"></i>
+                            <h3 class="font-bold">All-Time Platform Financials</h3>
+                        </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                            <div class="bg-white/10 rounded-xl p-4">
+                                <p class="text-xs text-slate-400 mb-1">Gross Revenue</p>
+                                <p id="fin-gross" class="text-xl font-black text-white">KES 0</p>
+                            </div>
+                            <div class="bg-white/10 rounded-xl p-4">
+                                <p class="text-xs text-slate-400 mb-1">Platform Fees (KES 1 per M-Pesa page)</p>
+                                <p id="fin-fees" class="text-xl font-black text-yellow-300">KES 0</p>
+                            </div>
+                            <div class="bg-white/10 rounded-xl p-4">
+                                <p class="text-xs text-slate-400 mb-1">Transaction Costs</p>
+                                <p id="fin-txfees" class="text-xl font-black text-red-300">KES 0</p>
+                            </div>
+                            <div class="bg-white/10 rounded-xl p-4">
+                                <p class="text-xs text-slate-400 mb-1">Owner Payouts</p>
+                                <p id="fin-payouts" class="text-xl font-black text-green-300">KES 0</p>
+                            </div>
+                        </div>
+                        <div class="mt-4 bg-white/5 rounded-xl p-3 flex justify-between text-sm"><span class="text-slate-400">Total Print Jobs (All-Time)</span><span id="fin-total-jobs" class="font-bold text-white">0</span></div>
+                    </div>
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold text-slate-800">Recent Registrations</h3><button onclick="showTab('owners')" class="text-xs text-blue-600 font-semibold hover:underline">View All →</button></div>
+                        <div id="recent-owners" class="overflow-x-auto"></div>
+                    </div>
+                </div>
+
+                <div id="tab-owners" class="tab-content">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h1 class="text-2xl font-bold text-slate-800">Cyber Owners</h1>
+                            <p id="owners-count-label" class="text-slate-500 text-sm"></p>
+                        </div>
+                        <input type="text" id="owner-search" placeholder="Search owners..." oninput="renderOwners()" class="px-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white w-48">
+                    </div>
+                    <div id="owners-table" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"></div>
+                </div>
+
+                <div id="tab-financials" class="tab-content">
+                    <div class="mb-6">
+                        <h1 class="text-2xl font-bold text-slate-800">Financial Ledger</h1>
+                        <p class="text-slate-500 text-sm">Full platform revenue audit and money flow</p>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-11 h-11 bg-blue-100 rounded-xl flex items-center justify-center"><i class="fas fa-money-bill-trend-up text-blue-600"></i></div>
+                                <p class="font-bold text-slate-700 text-sm">Gross Revenue</p>
+                            </div>
+                            <p id="fl-gross" class="text-3xl font-black text-slate-800 mb-1">KES 0</p>
+                            <p class="text-xs text-slate-400">Total payments collected</p>
+                        </div>
+                        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-11 h-11 bg-yellow-100 rounded-xl flex items-center justify-center"><i class="fas fa-percent text-yellow-600"></i></div>
+                                <p class="font-bold text-slate-700 text-sm">Platform Fees (10%)</p>
+                            </div>
+                            <p id="fl-fees" class="text-3xl font-black text-yellow-600 mb-1">KES 0</p>
+                            <p class="text-xs text-slate-400">Accumulated from Plan A owners</p>
+                        </div>
+                        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-11 h-11 bg-red-100 rounded-xl flex items-center justify-center"><i class="fas fa-right-left text-red-600"></i></div>
+                                <p class="font-bold text-slate-700 text-sm">Transaction Costs</p>
+                            </div>
+                            <p id="fl-txfees" class="text-3xl font-black text-red-500 mb-1">KES 0</p>
+                            <p class="text-xs text-slate-400">KES 15 flat per transaction</p>
+                        </div>
+                        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-11 h-11 bg-green-100 rounded-xl flex items-center justify-center"><i class="fas fa-hand-holding-dollar text-green-600"></i></div>
+                                <p class="font-bold text-slate-700 text-sm">Owner Payouts</p>
+                            </div>
+                            <p id="fl-payouts" class="text-3xl font-black text-green-600 mb-1">KES 0</p>
+                            <p class="text-xs text-slate-400">Net amount due to owners</p>
+                        </div>
+                        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-11 h-11 bg-purple-100 rounded-xl flex items-center justify-center"><i class="fas fa-receipt text-purple-600"></i></div>
+                                <p class="font-bold text-slate-700 text-sm">Total Transactions</p>
+                            </div>
+                            <p id="fl-total" class="text-3xl font-black text-slate-800 mb-1">0</p>
+                            <p class="text-xs text-slate-400">All-time print orders</p>
+                        </div>
+                        <div class="bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl p-5 text-white">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="w-11 h-11 bg-white/20 rounded-xl flex items-center justify-center"><i class="fas fa-building-columns"></i></div>
+                                <p class="font-bold text-sm">Today's Revenue</p>
+                            </div>
+                            <p id="fl-today-rev" class="text-3xl font-black mb-1">KES 0</p>
+                            <p id="fl-today-fee" class="text-xs text-blue-200">Commission today: KES 0</p>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="px-5 py-4 border-b border-slate-100">
+                            <h3 class="font-bold text-slate-800">Per-Owner Revenue Breakdown</h3>
+                        </div>
+                        <div id="per-owner-table" class="overflow-x-auto"></div>
+                    </div>
+                </div>
+
+                <div id="tab-jobs" class="tab-content">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h1 class="text-2xl font-bold text-slate-800">All Print Jobs</h1>
+                            <p class="text-slate-500 text-sm">System-wide order monitor</p>
+                        </div>
+                        <button onclick="renderJobs()" class="flex items-center gap-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-sm font-semibold px-4 py-2.5 rounded-xl transition"><i class="fas fa-rotate-right"></i> Refresh</button>
+                    </div>
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mb-6">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="font-bold text-slate-800">Broadcast notice</h3>
+                            <span class="text-xs text-slate-500">Email owners instantly</span>
+                        </div>
+                        <div class="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+                            <input id="notice-subject" type="text" placeholder="Subject" class="px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <input id="notice-message" type="text" placeholder="Notice message" class="px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <button onclick="sendAdminNotice()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2.5 rounded-xl transition">Send</button>
+                        </div>
+                    </div>
+                    <div id="jobs-table" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"></div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transition-opacity" style="opacity:0;pointer-events:none"></div>
+
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        let admin = null;
+        let ownersCache = [];
+        let ordersCache = [];
+
+        const SC = {
+            pending: 'bg-yellow-100 text-yellow-700',
+            seen: 'bg-blue-100 text-blue-700',
+            printing: 'bg-purple-100 text-purple-700',
+            printed: 'bg-green-100 text-green-700',
+            ready: 'bg-emerald-100 text-emerald-700'
+        };
+        const US = {
+            Active: 'bg-green-100 text-green-700',
+            Suspended: 'bg-yellow-100 text-yellow-700'
+        };
+
+        (async function start() {
+            admin = await requireAuth('admin');
+            if (!admin) return;
+            await init();
+        })();
+
+        async function init() {
+            const {
+                user
+            } = await API.me();
+            admin = user;
+            document.getElementById('sb-avatar').textContent = admin.name.charAt(0).toUpperCase();
+            document.getElementById('sb-name').textContent = admin.name;
+            document.getElementById('sb-email').textContent = admin.email;
+
+            const [{
+                owners
+            }, {
+                orders
+            }] = await Promise.all([API.adminOwners(), API.adminOrders()]);
+            ownersCache = owners;
+            ordersCache = orders;
+
+            const today = new Date().toDateString();
+            const todayOrd = orders.filter(o => new Date(o.created_at).toDateString() === today);
+
+            const grossRev = orders.reduce((a, o) => a + o.total_price, 0);
+            const totalFees = orders.reduce((a, o) => a + (o.platform_fee || 0), 0);
+            const totalTx = orders.reduce((a, o) => a + (o.transaction_fee || 0), 0);
+            const totalPay = orders.reduce((a, o) => a + (o.owner_payout || 0), 0);
+            const todayRev = todayOrd.reduce((a, o) => a + o.total_price, 0);
+            const todayFee = todayOrd.reduce((a, o) => a + (o.platform_fee || 0), 0);
+            const active = orders.filter(o => ['pending', 'seen', 'printing'].includes(o.status)).length;
+
+            document.getElementById('kpi-users').textContent = owners.length;
+            document.getElementById('kpi-today-jobs').textContent = todayOrd.length;
+            document.getElementById('kpi-today-fees').textContent = money(todayFee);
+            document.getElementById('kpi-active-jobs').textContent = active;
+
+            document.getElementById('fin-gross').textContent = money(grossRev);
+            document.getElementById('fin-fees').textContent = money(totalFees);
+            document.getElementById('fin-txfees').textContent = money(totalTx);
+            document.getElementById('fin-payouts').textContent = money(totalPay);
+            document.getElementById('fin-total-jobs').textContent = orders.length;
+
+            document.getElementById('fl-gross').textContent = money(grossRev);
+            document.getElementById('fl-fees').textContent = money(totalFees);
+            document.getElementById('fl-txfees').textContent = money(totalTx);
+            document.getElementById('fl-payouts').textContent = money(totalPay);
+            document.getElementById('fl-total').textContent = orders.length;
+            document.getElementById('fl-today-rev').textContent = money(todayRev);
+            document.getElementById('fl-today-fee').textContent = 'Commission today: ' + money(todayFee);
+
+            document.getElementById('recent-owners').innerHTML = buildOwnersTable(owners.slice(0, 6), true);
+            document.getElementById('per-owner-table').innerHTML = buildPerOwnerTable(owners, orders);
+        }
+
+        function showTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => {
+                n.classList.remove('active');
+                n.classList.add('text-slate-400');
+                n.classList.remove('text-white');
+            });
+            document.getElementById('tab-' + tab).classList.add('active');
+            const nav = document.getElementById('nav-' + tab);
+            if (nav) {
+                nav.classList.add('active', 'text-white');
+                nav.classList.remove('text-slate-400');
+            }
+            if (tab === 'owners') renderOwners();
+            if (tab === 'financials') init();
+            if (tab === 'jobs') renderJobs();
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+
+        function toggleMobileMenu() {
+            document.getElementById('mobile-menu').classList.toggle('hidden');
+        }
+        async function doLogout() {
+            await API.logout();
+            window.location.href = 'index.html';
+        }
+
+        function renderOwners() {
+            const q = (document.getElementById('owner-search').value || '').toLowerCase();
+            const owners = ownersCache
+                .filter(u => (u.shop_name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q))
+                .sort((a, b) => (Number(b.rating_avg) || 0) - (Number(a.rating_avg) || 0) || (Number(b.rating_count) || 0) - (Number(a.rating_count) || 0));
+            document.getElementById('owners-count-label').textContent = `${owners.length} registered cafes`;
+            document.getElementById('owners-table').innerHTML = owners.length === 0 ?
+                `<div class="p-10 text-center"><i class="fas fa-users text-4xl text-slate-300 mb-3 block"></i><p class="text-slate-500">No owners found</p></div>` :
+                buildOwnersTable(owners, false);
+        }
+
+        function buildOwnersTable(owners, minimal) {
+            if (owners.length === 0) return '<p class="text-slate-400 italic text-sm p-4">No owners yet.</p>';
+            return `<div class="overflow-x-auto"><table class="w-full text-sm">
+    <thead class="bg-slate-50 border-b border-slate-200"><tr class="text-left text-xs text-slate-500 uppercase tracking-wide">
+      <th class="px-5 py-3 font-semibold">Shop / Owner</th>
+      ${!minimal ? '<th class="px-5 py-3 font-semibold hidden md:table-cell">Contact</th>' : ''}
+      <th class="px-5 py-3 font-semibold hidden xl:table-cell">Rating</th>
+      <th class="px-5 py-3 font-semibold hidden lg:table-cell">Revenue</th>
+      <th class="px-5 py-3 font-semibold">Status</th>
+      ${!minimal ? '<th class="px-5 py-3 font-semibold">Actions</th>' : ''}
+    </tr></thead>
+    <tbody class="divide-y divide-slate-100">
+    ${owners.map(o => `<tr class="hover:bg-slate-50">
+        <td class="px-5 py-4"><div class="flex items-center gap-3">
+          <div class="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0 font-bold text-blue-600 text-sm">${o.shop_name.charAt(0).toUpperCase()}</div>
+          <div><p class="font-semibold text-slate-800 text-sm">${o.shop_name}</p><p class="text-xs text-slate-500">${o.name}</p></div>
+        </div></td>
+        ${!minimal ? `<td class="px-5 py-4 hidden md:table-cell"><p class="text-xs text-slate-600">${o.email}</p><p class="text-xs text-slate-500">${o.phone||'—'}</p></td>` : ''}
+        <td class="px-5 py-4 hidden xl:table-cell"><div class="flex items-center gap-1 text-amber-500">${'★'.repeat(Math.round(Number(o.rating_avg)||0))}${'☆'.repeat(5 - Math.round(Number(o.rating_avg)||0))}<span class="ml-1 text-xs font-semibold text-slate-600">${(Number(o.rating_avg)||0).toFixed(1)} (${Number(o.rating_count)||0})</span></div></td>
+        <td class="px-5 py-4 hidden lg:table-cell"><p class="font-bold text-slate-700">${money(o.payout)}</p><p class="text-xs text-slate-400">${o.order_count} orders</p></td>
+        <td class="px-5 py-4"><span id="status-badge-${o.id}" class="status-pill ${US[o.status]||'bg-slate-100 text-slate-600'}">${o.status}</span></td>
+        ${!minimal ? `<td class="px-5 py-4">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            ${o.status!=='Active'    ? `<button onclick="setStatus('${o.id}','Active')"    class="text-xs font-bold bg-green-100  hover:bg-green-200  text-green-700  px-3 py-1.5 rounded-lg transition"><i class="fas fa-circle-check mr-1"></i>Enable</button>` : ''}
+            ${o.status!=='Suspended' ? `<button onclick="setStatus('${o.id}','Suspended')" class="text-xs font-bold bg-yellow-100 hover:bg-yellow-200 text-yellow-700 px-3 py-1.5 rounded-lg transition"><i class="fas fa-pause mr-1"></i>Suspend</button>` : ''}
+            <button onclick="deleteOwner('${o.id}','${o.shop_name.replace(/'/g,"\\'")}')" class="text-xs font-bold bg-slate-100 hover:bg-red-100 text-slate-500 hover:text-red-600 px-3 py-1.5 rounded-lg transition"><i class="fas fa-trash"></i></button>
+          </div>
+        </td>` : ''}
+      </tr>`).join('')}
+    </tbody></table></div>`;
+}
+
+function buildPerOwnerTable(owners) {
+  if (owners.length === 0) return '<p class="text-slate-400 text-sm p-4 italic">No owners yet.</p>';
+  return `<div class="overflow-x-auto"><table class="w-full text-sm">
+        <thead class="bg-slate-50 border-b border-slate-200"><tr class="text-left text-xs text-slate-500 uppercase tracking-wide">
+            <th class="px-5 py-3 font-semibold">Shop</th><th class="px-5 py-3 font-semibold">Orders</th>
+      <th class="px-5 py-3 font-semibold">Platform Fee</th><th class="px-5 py-3 font-semibold">Net Payout</th>
+    </tr></thead><tbody class="divide-y divide-slate-50">
+    ${owners.map(o => `<tr class="hover:bg-slate-50">
+        <td class="px-5 py-3 font-semibold text-slate-800">${o.shop_name}</td>
+        <td class="px-5 py-3 text-slate-700">${o.order_count}</td>
+        <td class="px-5 py-3 text-yellow-600 font-semibold">${money(o.fees)}</td>
+        <td class="px-5 py-3 font-bold text-green-600">${money(o.payout)}</td>
+      </tr>`).join('')}
+    </tbody></table></div>`;
+}
+
+async function setStatus(ownerId, status) {
+  const msgs = {Active:'Enable this owner?', Suspended:'Suspend this owner? Their store will be blocked.'};
+  if (!confirm(msgs[status])) return;
+  try {
+    await API.adminSetOwnerStatus(ownerId, status);
+    showToast('Status updated to: ' + status);
+    await init(); renderOwners();
+  } catch (err) { showToast(err.message, true); }
+}
+
+async function deleteOwner(id, name) {
+  if (!confirm(`Permanently delete "${name}" and all their data? This cannot be undone.`)) return;
+  try {
+    await API.adminDeleteOwner(id);
+    showToast('Owner deleted.');
+    await init(); renderOwners();
+  } catch (err) { showToast(err.message, true); }
+}
+
+function openSubModal(id, plan, active, expiry) {
+  document.getElementById('sub-owner-id').value = id;
+  document.getElementById('sub-plan').value     = plan;
+  document.getElementById('sub-active').value   = String(active);
+  document.getElementById('sub-expiry').value   = expiry || '';
+  document.getElementById('sub-modal').classList.remove('hidden');
+}
+function closeSubModal() { document.getElementById('sub-modal').classList.add('hidden'); }
+
+async function saveSubscription() {
+  const id     = document.getElementById('sub-owner-id').value;
+  const plan   = document.getElementById('sub-plan').value;
+  const active = document.getElementById('sub-active').value === 'true';
+  const expiry = document.getElementById('sub-expiry').value;
+  try {
+    await API.adminSetSubscription(id, plan, active, expiry);
+    showToast('Subscription updated!');
+    closeSubModal();
+    await init(); renderOwners();
+  } catch (err) { showToast(err.message, true); }
+}
+
+async function sendAdminNotice() {
+  const subject = document.getElementById('notice-subject').value.trim();
+  const message = document.getElementById('notice-message').value.trim();
+  if (!subject || !message) return showToast('Please enter a subject and message.', true);
+  try {
+    await API.adminNotifyOwners(subject, message);
+    showToast('Notice sent to owners.');
+    document.getElementById('notice-subject').value = '';
+    document.getElementById('notice-message').value = '';
+  } catch (err) { showToast(err.message, true); }
+}
+
+async function renderJobs() {
+  const { orders } = await API.adminOrders();
+  ordersCache = orders;
+  const el = document.getElementById('jobs-table');
+  if (orders.length === 0) {
+    el.innerHTML = '<div class="p-10 text-center"><i class="fas fa-inbox text-4xl text-slate-300 mb-3 block"></i><p class="text-slate-500">No print jobs yet</p></div>';
+    return;
+  }
+  el.innerHTML = `<div class="overflow-x-auto"><table class="w-full text-sm">
+    <thead class="bg-slate-50 border-b border-slate-200"><tr class="text-left text-xs text-slate-500 uppercase tracking-wide">
+      <th class="px-5 py-3 font-semibold">Code</th><th class="px-5 py-3 font-semibold">Shop</th>
+      <th class="px-5 py-3 font-semibold hidden md:table-cell">Customer</th>
+      <th class="px-5 py-3 font-semibold">Amount</th>
+      <th class="px-5 py-3 font-semibold hidden lg:table-cell">Platform Fee</th>
+      <th class="px-5 py-3 font-semibold">Status</th>
+      <th class="px-5 py-3 font-semibold hidden lg:table-cell">Date</th>
+    </tr></thead><tbody class="divide-y divide-slate-50">
+    ${orders.map(o => `<tr class="hover:bg-slate-50">
+        <td class="px-5 py-3 font-mono font-bold text-blue-600 text-xs">${o.small_order_id||'—'}</td>
+        <td class="px-5 py-3 font-semibold text-slate-800 text-xs">${o.shop_name||'—'}</td>
+        <td class="px-5 py-3 text-slate-600 text-xs hidden md:table-cell">${o.customer_name||o.customer_phone||'Walk-in'}</td>
+        <td class="px-5 py-3 font-bold text-slate-800">${money(o.total_price)}</td>
+        <td class="px-5 py-3 text-yellow-600 text-xs hidden lg:table-cell">${money(o.platform_fee)}</td>
+        <td class="px-5 py-3"><span class="status-pill ${SC[o.status]||'bg-slate-100 text-slate-600'}">${o.status}</span></td>
+        <td class="px-5 py-3 text-slate-400 text-xs hidden lg:table-cell">${new Date(o.created_at).toLocaleDateString('en-KE')}</td>
+      </tr>`).join('')}
+    </tbody></table></div>`;
+}
+    </script>
+</body>
+
+</html>

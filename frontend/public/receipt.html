@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PrintFlow – Receipt & Tracking</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/all.min.css">
+    <style>
+        @media (max-width: 640px) {
+            .receipt-shell {
+                padding: 0.75rem;
+            }
+            .receipt-card {
+                padding: 1rem;
+            }
+            .receipt-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background: #fff;
+            }
+            .print-card {
+                box-shadow: none !important;
+                border: 1px solid #ccc;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-slate-100 min-h-screen">
+
+    <header class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between no-print">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center"><i class="fas fa-print text-sm"></i></div>
+            <span class="font-bold text-lg">PrintFlow</span>
+        </div>
+        <button onclick="downloadReceipt()" class="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold px-4 py-2 rounded-xl transition"><i class="fas fa-download"></i> Download as Image</button>
+    </header>
+
+    <div id="error-state" class="hidden max-w-md mx-auto px-4 py-20 text-center">
+        <div class="bg-white rounded-3xl shadow-xl p-10">
+            <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4"><i class="fas fa-receipt text-red-500 text-2xl"></i></div>
+            <h2 class="text-xl font-bold text-slate-800 mb-2">Receipt Not Found</h2>
+            <p class="text-slate-500 text-sm" id="error-msg">The order could not be found.</p>
+            <a href="index.html" class="mt-5 inline-flex items-center gap-2 bg-blue-600 text-white font-bold px-6 py-3 rounded-xl hover:bg-blue-700 transition text-sm"><i class="fas fa-home"></i> Go Home</a>
+        </div>
+    </div>
+
+    <div id="receipt-content" class="hidden max-w-2xl mx-auto px-3 py-4 sm:px-4 sm:py-8 receipt-shell">
+
+        <div class="bg-gradient-to-br from-slate-900 to-blue-900 rounded-3xl p-5 sm:p-8 text-white mb-6 shadow-2xl text-center print-card">
+            <div class="flex items-center justify-center gap-2 mb-4"><i class="fas fa-receipt text-blue-400 text-sm"></i><span class="text-blue-300 text-xs font-semibold uppercase tracking-widest">PrintFlow Order Receipt</span></div>
+            <p class="text-slate-400 text-xs uppercase tracking-widest mb-1">Your Pickup Code</p>
+            <div class="font-mono font-black text-white drop-shadow-lg mb-2" id="display-small-id" style="font-size:5rem;letter-spacing:.1em;line-height:1">—</div>
+            <p class="text-blue-300 text-sm mb-6">Show this code at the counter to collect your printout</p>
+            <div class="bg-white/10 rounded-2xl p-4 inline-block mb-4">
+                <p class="text-xs text-slate-400 mb-1">Order Reference</p>
+                <p class="font-mono font-bold text-xl text-blue-300 tracking-widest" id="display-order-code">—</p>
+            </div>
+            <div class="grid grid-cols-2 gap-4 mt-4 text-left">
+                <div class="bg-white/10 rounded-xl p-3">
+                    <p class="text-xs text-slate-400">Store</p>
+                    <p class="font-semibold text-sm mt-0.5" id="display-shop">—</p>
+                </div>
+                <div class="bg-white/10 rounded-xl p-3">
+                    <p class="text-xs text-slate-400">Date & Time</p>
+                    <p class="font-semibold text-sm mt-0.5" id="display-date">—</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6 print-card">
+            <div class="flex items-center justify-between mb-5">
+                <h3 class="font-bold text-slate-800 flex items-center gap-2"><i class="fas fa-store text-blue-600"></i> Checkout Details</h3>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Cyber owner</p>
+                    <div class="flex items-center gap-2 flex-wrap mt-1">
+                        <h4 class="font-bold text-slate-800 text-lg" id="display-owner-name">—</h4>
+                        <span id="owner-rating-pill" class="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">Not rated yet</span>
+                    </div>
+                </div>
+                <div class="text-left sm:text-right">
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Amount</p>
+                    <p class="font-black text-blue-600 text-xl" id="display-total-card">KES —</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 text-sm">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Payment</p>
+                    <p class="font-semibold text-slate-800 mt-1" id="display-payment-summary">—</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Contact cyber</p>
+                    <p class="font-semibold text-slate-800 mt-1" id="display-owner-phone">—</p>
+                </div>
+            </div>
+            <div class="border-t border-slate-200 mt-4 pt-4 space-y-2 text-sm">
+                <div class="flex justify-between gap-3"><span class="text-slate-500">Work requested</span><span class="font-semibold text-slate-800 text-right" id="display-work-summary">—</span></div>
+                <div class="flex justify-between gap-3"><span class="text-slate-500">Payee / service</span><span class="font-semibold text-slate-800 text-right" id="display-payee-summary">—</span></div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6 print-card">
+            <div class="flex items-center justify-between mb-5">
+                <h3 class="font-bold text-slate-800 flex items-center gap-2"><i class="fas fa-timeline text-blue-600"></i> Order Status</h3>
+                <button onclick="refreshStatus()" class="no-print text-xs text-blue-600 cursor-pointer hover:underline flex items-center gap-1"><i class="fas fa-rotate-right"></i> Refresh</button>
+            </div>
+            <div id="status-track" class="flex items-start justify-between mb-4"></div>
+            <div id="status-alert" class="hidden rounded-xl p-4 flex items-center gap-3"></div>
+            <div class="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">This receipt page will keep showing live progress as your order moves through the queue.</div>
+            <div id="current-status-display" class="mt-4 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex items-center gap-2">
+                <span class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+                <span class="text-blue-700 text-sm font-medium">Status: <strong id="status-label">—</strong></span>
+            </div>
+            <div id="payment-status-display" class="mt-2 rounded-xl px-4 py-3 flex items-center gap-2"></div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6 print-card">
+            <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2"><i class="fas fa-file-invoice text-blue-600"></i> Order Details</h3>
+            <div id="services-detail" class="space-y-3 mb-4"></div>
+            <div class="border-t border-slate-200 pt-4 space-y-2">
+                <div class="flex justify-between text-sm text-slate-600"><span>Payment Method</span><span id="display-pay-method" class="font-medium"></span></div>
+                <div class="flex justify-between font-bold text-slate-800 text-base border-t border-slate-200 pt-2 mt-2"><span>Total</span><span class="text-blue-600" id="display-total">KES —</span></div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-5 mb-6 print-card receipt-card">
+            <h3 class="font-bold text-slate-800 mb-3 text-sm">Customer Details</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm receipt-grid">
+                <div>
+                    <p class="text-xs text-slate-500">Name</p>
+                    <p class="font-semibold" id="display-customer">—</p>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-500">Phone</p>
+                    <p class="font-semibold" id="display-phone">—</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-5 mb-6 print-card receipt-card">
+            <h3 class="font-bold text-slate-800 mb-3 text-sm">Rate this cyber owner</h3>
+            <p class="text-sm text-slate-600 mb-3">Your feedback helps the admin arrange trusted cyber cafes better.</p>
+            <div class="flex flex-wrap items-center gap-3">
+                <div id="rating-stars" class="flex items-center gap-1"></div>
+                <button id="rating-submit-btn" onclick="submitRating()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition disabled:opacity-50" disabled>Submit Rating</button>
+            </div>
+            <p id="rating-feedback" class="mt-3 text-sm text-slate-600">Choose a star rating to share your experience.</p>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-3 no-print">
+            <button onclick="downloadReceipt()" class="flex-1 flex items-center justify-center gap-2 border-2 border-slate-300 text-slate-700 font-bold py-3.5 rounded-xl hover:bg-slate-50 transition"><i class="fas fa-download"></i> Download as Image</button>
+            <a id="new-order-btn" href="#" class="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition"><i class="fas fa-plus"></i> New Order</a>
+        </div>
+
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        let orderId = null;
+        let currentReceiptData = null;
+        let selectedRating = 0;
+
+        const ALL_STATUSES = ['pending', 'seen', 'printing', 'printed', 'ready'];
+        const STATUS_INFO = {
+            pending: {
+                label: 'Order Received',
+                icon: 'fa-clock',
+                desc: 'Your order is waiting to be processed.'
+            },
+            seen: {
+                label: 'Seen by Operator',
+                icon: 'fa-eye',
+                desc: 'Staff has acknowledged your order.'
+            },
+            printing: {
+                label: 'Printing Now',
+                icon: 'fa-print',
+                desc: 'Your documents are being printed.'
+            },
+            printed: {
+                label: 'Print Complete',
+                icon: 'fa-check-circle',
+                desc: 'Printing finished successfully!'
+            },
+            ready: {
+                label: 'Ready for Pickup',
+                icon: 'fa-bag-shopping',
+                desc: 'Come collect your printout now!'
+            }
+        };
+
+        window.addEventListener('load', async() => {
+            const params = new URLSearchParams(window.location.search);
+            orderId = params.get('order_id');
+            if (!orderId) {
+                document.getElementById('error-state').classList.remove('hidden');
+                return;
+            }
+
+            let order, owner;
+            try {
+                const res = await API.getOrder(orderId);
+                order = res.order;
+                owner = res.owner;
+            } catch {
+                document.getElementById('error-state').classList.remove('hidden');
+                return;
+            }
+
+            // Detect if the current viewer is the cyber owner
+            let viewerIsOwner = false;
+            try {
+                const meRes = await API.me();
+                if (meRes && meRes.user && meRes.user.role === 'owner') {
+                    viewerIsOwner = true;
+                }
+            } catch { /* not logged in, that's fine */ }
+
+            // Hide rating section for owner; show locked notice instead
+            const ratingCard = document.querySelector('.bg-white.rounded-2xl.shadow-sm.border.border-slate-200.p-4.sm\\:p-5.mb-6.print-card.receipt-card:last-of-type');
+            const ratingSection = document.getElementById('rating-stars') && document.getElementById('rating-stars').closest('.bg-white');
+            if (viewerIsOwner) {
+                // Find the rating card by its heading text
+                document.querySelectorAll('.bg-white.rounded-2xl').forEach(card => {
+                    const heading = card.querySelector('h3');
+                    if (heading && heading.textContent.includes('Rate this cyber owner')) {
+                        card.innerHTML = `<div class="flex items-center gap-3 p-2">
+                            <div class="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center flex-shrink-0"><i class="fas fa-lock text-slate-400"></i></div>
+                            <div>
+                                <p class="font-semibold text-slate-500 text-sm">Rating not available</p>
+                                <p class="text-xs text-slate-400 mt-0.5">Cyber owners cannot submit ratings for their own orders.</p>
+                            </div>
+                        </div>`;
+                    }
+                });
+            }
+
+            let services = [];
+            try {
+                services = JSON.parse(order.services_json || '[]');
+            } catch {}
+
+            currentReceiptData = {
+                order,
+                owner,
+                services
+            };
+
+            document.getElementById('display-small-id').textContent = order.small_order_id || '—';
+            document.getElementById('display-order-code').textContent = order.order_code || '—';
+            document.getElementById('display-shop').textContent = owner && owner.shop_name ? owner.shop_name : '—';
+            document.getElementById('display-date').textContent = new Date(order.created_at).toLocaleString('en-KE');
+            document.getElementById('display-customer').textContent = order.customer_name || 'Walk-in Customer';
+            document.getElementById('display-phone').textContent = order.customer_phone || '—';
+            document.getElementById('display-total').textContent = money(order.total_price);
+            document.getElementById('display-total-card').textContent = money(order.total_price);
+            document.getElementById('display-owner-name').textContent = owner && owner.shop_name ? owner.shop_name : (owner && owner.name ? owner.name : '—');
+            document.getElementById('display-owner-phone').innerHTML = owner && owner.phone ? `<a href="tel:${owner.phone}" class="text-blue-600 hover:underline">${owner.phone}</a>` : '—';
+            const paymentLabel = order.payment_method === 'mpesa' ? 'Paid via M-Pesa' : 'Cash on delivery / pickup';
+            document.getElementById('display-payment-summary').textContent = `${paymentLabel} · ${order.payment_status === 'paid' ? 'Paid' : 'Pending'}`;
+            document.getElementById('display-payee-summary').textContent = order.customer_name || 'Walk-in Customer';
+            document.getElementById('display-work-summary').textContent = services.length > 0 ? `${services.length} service${services.length > 1 ? 's' : ''} requested` : `${order.pages || 1} pages · ${order.copies || 1} copy`;
+            document.getElementById('display-pay-method').innerHTML =
+                order.payment_method === 'mpesa' ?
+                '<i class="fas fa-mobile-screen-button text-green-600 mr-1"></i><span class="text-green-600 font-bold">M-Pesa</span>' :
+                '<i class="fas fa-money-bill-wave text-yellow-600 mr-1"></i><span class="text-yellow-600 font-bold">Cash on Pickup</span>';
+            document.getElementById('owner-rating-pill').textContent = owner && Number(owner.rating_count)
+                ? `${Number(owner.rating_avg || 0).toFixed(1)} ★ · ${Number(owner.rating_count)} rating${Number(owner.rating_count) === 1 ? '' : 's'}`
+                : 'No ratings yet';
+
+            const payEl = document.getElementById('payment-status-display');
+            if (order.payment_status === 'paid') {
+                payEl.className = 'mt-2 rounded-xl px-4 py-3 flex items-center gap-2 bg-emerald-50 border border-emerald-100';
+                payEl.innerHTML = `<i class="fas fa-circle-check text-emerald-600"></i><span class="text-emerald-700 text-sm font-medium">Payment received${order.mpesa_receipt ? ' · Ref '+order.mpesa_receipt : ''}</span>`;
+            } else {
+                payEl.className = 'mt-2 rounded-xl px-4 py-3 flex items-center gap-2 bg-amber-50 border border-amber-100';
+                payEl.innerHTML = `<i class="fas fa-clock text-amber-600"></i><span class="text-amber-700 text-sm font-medium">Payment pending</span>`;
+            }
+
+            const svcEl = document.getElementById('services-detail');
+            if (services.length > 0) {
+                svcEl.innerHTML = services.map(s => `
+      <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0"><i class="fas fa-print text-blue-600 text-sm"></i></div>
+          <div><p class="font-semibold text-slate-800 text-sm">${s.name}</p><p class="text-xs text-slate-500">${s.pages} pages × ${s.copies} copies · ${s.color}</p></div>
+        </div>
+        <span class="font-bold text-slate-800">KES ${Number(s.subtotal || (s.pages * s.copies * s.price)).toFixed(0)}</span>
+      </div>`).join('');
+            } else {
+                svcEl.innerHTML = `<div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+      <div><p class="font-semibold text-slate-800 text-sm">Print Job</p><p class="text-xs text-slate-500">${order.pages} pages × ${order.copies} copies · ${order.color}</p></div>
+      <span class="font-bold text-slate-800">KES ${Number(order.total_price).toFixed(0)}</span>
+    </div>`;
+            }
+
+            document.getElementById('new-order-btn').href = `customer-order.html?owner=${order.owner_id}`;
+            renderRatingStars(order.owner_rating || 0);
+            if (order.owner_rating) {
+                document.getElementById('rating-feedback').textContent = `Thanks! You already rated this cyber owner ${order.owner_rating} star${order.owner_rating > 1 ? 's' : ''}.`;
+                document.getElementById('rating-submit-btn').disabled = true;
+            }
+
+            renderStatusTrack(order.status);
+            document.getElementById('receipt-content').classList.remove('hidden');
+
+            setInterval(refreshStatus, 15000);
+        });
+
+        function escapeHtml(value = '') {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function renderRatingStars(active = 0) {
+            selectedRating = active || 0;
+            const starsEl = document.getElementById('rating-stars');
+            if (!starsEl) return;
+            starsEl.innerHTML = Array.from({
+                length: 5
+            }, (_, index) => {
+                const value = index + 1;
+                const filled = value <= selectedRating;
+                return `<button type="button" data-rating="${value}" class="text-2xl transition ${filled ? 'text-amber-400' : 'text-slate-300'} hover:text-amber-400" aria-label="Rate ${value} star${value > 1 ? 's' : ''}"><i class="fas fa-star"></i></button>`;
+            }).join('');
+            starsEl.querySelectorAll('button').forEach(button => {
+                button.addEventListener('click', () => {
+                    selectedRating = Number(button.getAttribute('data-rating'));
+                    renderRatingStars(selectedRating);
+                    document.getElementById('rating-submit-btn').disabled = false;
+                    document.getElementById('rating-feedback').textContent = `You selected ${selectedRating} star${selectedRating > 1 ? 's' : ''}.`;
+                });
+            });
+        }
+
+        async function submitRating() {
+            if (!orderId || selectedRating < 1) return;
+            try {
+                const res = await API.rateOrder(orderId, selectedRating);
+                currentReceiptData = {...currentReceiptData,
+                    owner: res.owner
+                };
+                document.getElementById('rating-submit-btn').disabled = true;
+                document.getElementById('rating-feedback').textContent = `Thank you! You rated this owner ${selectedRating} star${selectedRating > 1 ? 's' : ''}.`;
+                document.getElementById('owner-rating-pill').textContent = `${((res.owner && res.owner.rating_avg) || 0).toFixed(1)} ★ · ${((res.owner && res.owner.rating_count) || 0)} ratings`;
+            } catch (err) {
+                document.getElementById('rating-feedback').textContent = err.message || 'Could not submit rating.';
+            }
+        }
+
+        function downloadReceipt() {
+            if (!currentReceiptData) return;
+            const {
+                order,
+                owner,
+                services
+            } = currentReceiptData;
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const width = 1200;
+            const height = 1500;
+            canvas.width = width;
+            canvas.height = height;
+
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 2;
+            roundRect(ctx, 60, 40, width - 120, height - 80, 28);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#0f172a';
+            ctx.font = '700 34px Arial';
+            ctx.fillText('PrintFlow Receipt', 95, 110);
+
+            ctx.fillStyle = '#64748b';
+            ctx.font = '500 20px Arial';
+            ctx.fillText(`Order: ${order.small_order_id || order.order_code || '—'}`, 95, 150);
+            ctx.fillText(`Store: ${(owner && owner.shop_name) || 'PrintFlow'}`, 95, 182);
+
+            ctx.fillStyle = '#2563eb';
+            ctx.font = '700 24px Arial';
+            ctx.fillText('Customer Details', 95, 235);
+
+            ctx.fillStyle = '#0f172a';
+            ctx.font = '600 22px Arial';
+            ctx.fillText(`Customer: ${order.customer_name || 'Walk-in Customer'}`, 95, 280);
+            ctx.fillText(`Phone: ${order.customer_phone || '—'}`, 95, 315);
+            ctx.fillText(`Pickup Code: ${order.small_order_id || '—'}`, 95, 350);
+
+            ctx.fillStyle = '#2563eb';
+            ctx.font = '700 24px Arial';
+            ctx.fillText('Order Status', 95, 410);
+            ctx.fillStyle = '#0f172a';
+            ctx.font = '600 22px Arial';
+            const statusLabel = (STATUS_INFO[order.status] && STATUS_INFO[order.status].label) || order.status || 'Received';
+            ctx.fillText(`Status: ${statusLabel}`, 95, 455);
+            ctx.fillText(`Payment: ${order.payment_status === 'paid' ? 'Paid' : 'Payment pending'}`, 95, 490);
+            if (order.payment_status === 'paid' && order.mpesa_receipt) {
+                ctx.fillText(`Receipt Ref: ${order.mpesa_receipt}`, 95, 525);
+            }
+
+            ctx.fillStyle = '#2563eb';
+            ctx.font = '700 24px Arial';
+            ctx.fillText('Services', 95, 585);
+            ctx.fillStyle = '#0f172a';
+            ctx.font = '600 20px Arial';
+            const serviceLines = (services.length > 0 ? services : [{
+                name: order.color || 'Print Job',
+                pages: order.pages || 1,
+                copies: order.copies || 1,
+                color: order.color || 'Standard'
+            }]);
+            serviceLines.forEach((service, index) => {
+                const y = 630 + index * 55;
+                ctx.fillText(`${service.name} — ${service.pages || 0} pages × ${service.copies || 1} copies · ${service.color || 'Standard'}`, 95, y);
+            });
+
+            ctx.fillStyle = '#1e293b';
+            ctx.font = '700 30px Arial';
+            ctx.fillText(`Total: KES ${Number(order.total_price || 0).toFixed(0)}`, 95, 760 + Math.max(0, serviceLines.length - 1) * 55);
+
+            const link = document.createElement('a');
+            link.download = `receipt-${order.small_order_id || order.order_code || order.id}.png`;
+            link.href = canvas.toDataURL('image/png');
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        }
+
+        function roundRect(ctx, x, y, width, height, radius) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.arcTo(x + width, y, x + width, y + height, radius);
+            ctx.arcTo(x + width, y + height, x, y + height, radius);
+            ctx.arcTo(x, y + height, x, y, radius);
+            ctx.arcTo(x, y, x + width, y, radius);
+            ctx.closePath();
+        }
+
+        function renderStatusTrack(currentStatus) {
+            const idx = ALL_STATUSES.indexOf(currentStatus);
+            const el = document.getElementById('status-track');
+
+            el.innerHTML = ALL_STATUSES.map((s, i) => {
+                const isDone = i < idx,
+                    isCurrent = i === idx;
+                const dotCls = isDone ? 'bg-green-500 text-white' : isCurrent ? 'bg-blue-600 text-white ring-4 ring-blue-100' : 'bg-slate-200 text-slate-400';
+                const inner = isDone ? '<i class="fas fa-check text-xs"></i>' : `<i class="fas ${STATUS_INFO[s].icon} text-xs"></i>`;
+                const lblCls = i <= idx ? 'text-slate-700' : 'text-slate-400';
+                return `<div class="flex flex-col items-center flex-1"><div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold mb-2 ${dotCls} transition-all">${inner}</div><p class="text-xs text-center font-semibold leading-tight ${lblCls}" style="max-width:56px">${STATUS_INFO[s].label}</p></div>`;
+            }).join('');
+
+            document.getElementById('status-label').textContent = (STATUS_INFO[currentStatus] && STATUS_INFO[currentStatus].label) || currentStatus;
+
+            const alert = document.getElementById('status-alert');
+            if (currentStatus === 'ready') {
+                alert.className = 'rounded-xl p-4 flex items-center gap-3 bg-green-50 border border-green-200 mt-4';
+                alert.innerHTML = `<div class="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center flex-shrink-0"><i class="fas fa-bag-shopping text-white"></i></div><div><p class="font-bold text-green-800">Ready for Pickup! 🎉</p><p class="text-green-700 text-sm">Your printout is ready. Please come collect it at the counter.</p></div>`;
+                alert.classList.remove('hidden');
+            } else if (currentStatus === 'printing') {
+                alert.className = 'rounded-xl p-4 flex items-center gap-3 bg-purple-50 border border-purple-200 mt-4';
+                alert.innerHTML = `<div class="w-10 h-10 bg-purple-500 rounded-xl flex items-center justify-center flex-shrink-0"><i class="fas fa-print text-white"></i></div><div><p class="font-bold text-purple-800">Printing in Progress</p><p class="text-purple-700 text-sm">Your documents are being printed right now.</p></div>`;
+                alert.classList.remove('hidden');
+            } else {
+                alert.classList.add('hidden');
+            }
+        }
+
+        async function refreshStatus() {
+            if (!orderId) return;
+            try {
+                const {
+                    order
+                } = await API.getOrder(orderId);
+                renderStatusTrack(order.status);
+            } catch {}
+        }
+    </script>
+</body>
+
+</html>

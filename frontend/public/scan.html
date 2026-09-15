@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PrintFlow – Find a Cafe</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
+            min-height: 100vh;
+        }
+        
+        .finder-tab.hidden {
+            display: none;
+        }
+        
+        .cafe-card {
+            border: 2px solid #e2e8f0;
+            cursor: pointer;
+            transition: all .2s;
+        }
+        
+        .cafe-card:hover {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+        
+        video {
+            width: 100%;
+            border-radius: 1rem;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen">
+
+    <div class="max-w-2xl mx-auto px-3 py-4 sm:px-4 sm:py-8">
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4 shadow-xl"><i class="fas fa-print text-white text-2xl"></i></div>
+            <h1 class="text-3xl font-bold text-white">PrintFlow</h1>
+            <p class="text-slate-400 text-sm mt-1">Find your cafe to place an order</p>
+        </div>
+
+        <div class="bg-white rounded-3xl shadow-xl p-4 sm:p-6 mb-4">
+            <div class="flex border-b border-slate-200 mb-5">
+                <button onclick="showFinderTab('scan')" id="tab-scan" class="flex-1 py-3 text-sm font-semibold rounded-tl-xl">Scan QR</button>
+                <button onclick="showFinderTab('upload')" id="tab-upload" class="flex-1 py-3 text-sm font-semibold">Upload QR</button>
+                <button onclick="showFinderTab('search')" id="tab-search" class="flex-1 py-3 text-sm font-semibold rounded-tr-xl">Search</button>
+            </div>
+
+            <!-- SCAN -->
+            <div id="finder-scan" class="finder-tab">
+                <div class="relative rounded-2xl overflow-hidden bg-black mb-4">
+                    <video id="qr-video" autoplay playsinline class="w-full h-64 sm:h-80 object-cover hidden"></video>
+                    <canvas id="qr-canvas" class="hidden"></canvas>
+                    <div id="scan-overlay" class="absolute inset-0 hidden flex items-center justify-center">
+                        <div class="relative w-64 h-64">
+                            <div class="absolute inset-0 border-4 border-blue-500 rounded-2xl animate-pulse"></div>
+                            <div class="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-green-400 rounded-tl-2xl"></div>
+                            <div class="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-green-400 rounded-tr-2xl"></div>
+                            <div class="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-green-400 rounded-bl-2xl"></div>
+                            <div class="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-green-400 rounded-br-2xl"></div>
+                            <p class="absolute -bottom-10 w-full text-center text-white text-sm font-semibold animate-pulse">SCANNING...</p>
+                        </div>
+                    </div>
+                </div>
+                <button id="start-scan-btn" onclick="startScan()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2"><i class="fas fa-camera"></i> Start Camera</button>
+                <button id="stop-scan-btn" onclick="stopScan()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl hidden mt-2">Stop Camera</button>
+                <p class="text-xs text-slate-400 text-center mt-3">Point camera at the cafe's QR code</p>
+            </div>
+
+            <!-- UPLOAD -->
+            <div id="finder-upload" class="finder-tab hidden">
+                <label class="border-2 border-dashed border-slate-300 rounded-2xl p-10 text-center cursor-pointer hover:border-blue-500 block">
+        <i class="fas fa-image text-blue-500 text-4xl mb-3"></i>
+        <p class="text-slate-700 font-semibold">Click to upload a QR image</p>
+        <input type="file" id="qr-upload-input" accept="image/*" class="hidden">
+      </label>
+                <div id="upload-preview" class="hidden mt-4">
+                    <img id="uploaded-img" class="w-full rounded-xl mb-3 max-h-64 object-contain bg-slate-50">
+                    <p id="upload-result" class="text-sm text-center font-medium"></p>
+                </div>
+            </div>
+
+            <!-- SEARCH -->
+            <div id="finder-search" class="finder-tab hidden">
+                <div class="relative mb-4">
+                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="search-input" placeholder="Search cafe name or location..." class="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                </div>
+                <div id="search-results" class="space-y-3 max-h-80 overflow-y-auto"></div>
+            </div>
+        </div>
+
+        <p class="text-center text-xs text-slate-400">Don't have a QR? Ask the cafe owner for their shop name to search for them.</p>
+    </div>
+
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transition-opacity" style="opacity:0;pointer-events:none"></div>
+
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        let videoStream = null;
+        let scanning = false;
+        let lastDetectedCode = '';
+
+        function showFinderTab(tab) {
+            document.querySelectorAll('.finder-tab').forEach(t => t.classList.add('hidden'));
+            ['scan', 'upload', 'search'].forEach(t => {
+                const btn = document.getElementById('tab-' + t);
+                btn.classList.remove('bg-blue-600', 'text-white');
+                btn.classList.add('text-slate-600');
+            });
+            document.getElementById('finder-' + tab).classList.remove('hidden');
+            document.getElementById('tab-' + tab).classList.add('bg-blue-600', 'text-white');
+            document.getElementById('tab-' + tab).classList.remove('text-slate-600');
+            if (tab !== 'scan') stopScan();
+        }
+        showFinderTab('scan');
+
+        async function startScan() {
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'environment',
+                        width: {
+                            ideal: 1280
+                        }
+                    }
+                });
+                const video = document.getElementById('qr-video');
+                video.srcObject = videoStream;
+                video.classList.remove('hidden');
+                document.getElementById('scan-overlay').classList.remove('hidden');
+                document.getElementById('start-scan-btn').classList.add('hidden');
+                document.getElementById('stop-scan-btn').classList.remove('hidden');
+                scanning = true;
+                video.onloadedmetadata = () => video.play();
+                requestAnimationFrame(tick);
+            } catch (e) {
+                showToast('Camera access denied. Try Upload QR or Search instead.', true);
+            }
+        }
+
+        function stopScan() {
+            scanning = false;
+            if (videoStream) {
+                videoStream.getTracks().forEach(t => t.stop());
+                videoStream = null;
+            }
+            document.getElementById('qr-video').classList.add('hidden');
+            document.getElementById('scan-overlay').classList.add('hidden');
+            document.getElementById('start-scan-btn').classList.remove('hidden');
+            document.getElementById('stop-scan-btn').classList.add('hidden');
+        }
+
+        function tick() {
+            if (!scanning) return;
+            const video = document.getElementById('qr-video');
+            const canvas = document.getElementById('qr-canvas');
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: 'dontInvert'
+                });
+                if (code && code.data !== lastDetectedCode) {
+                    lastDetectedCode = code.data;
+                    stopScan();
+                    if (navigator.vibrate) navigator.vibrate(200);
+                    handleQRCode(code.data);
+                    return;
+                }
+            }
+            requestAnimationFrame(tick);
+        }
+
+        document.getElementById('qr-upload-input').addEventListener('change', e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+                const img = document.getElementById('uploaded-img');
+                img.src = ev.target.result;
+                document.getElementById('upload-preview').classList.remove('hidden');
+                img.onload = () => {
+                    const canvas = document.getElementById('qr-canvas');
+                    canvas.width = img.naturalWidth;
+                    canvas.height = img.naturalHeight;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(data.data, data.width, data.height);
+                    const resultEl = document.getElementById('upload-result');
+                    if (code) {
+                        resultEl.textContent = 'QR found — opening cafe...';
+                        resultEl.className = 'text-sm text-center font-medium text-green-600';
+                        handleQRCode(code.data);
+                    } else {
+                        resultEl.textContent = 'No QR code found in that image.';
+                        resultEl.className = 'text-sm text-center font-medium text-red-500';
+                    }
+                };
+            };
+            reader.readAsDataURL(file);
+        });
+
+        function extractOwnerIdFromQr(data) {
+            if (!data) return null;
+
+            const raw = String(data).trim();
+
+            try {
+                const url = new URL(raw, window.location.origin);
+                const ownerFromQuery = url.searchParams.get('owner');
+                if (ownerFromQuery) return ownerFromQuery;
+            } catch {}
+
+            if (raw.includes('owner=')) {
+                const params = new URLSearchParams(raw.split('?')[1] || '');
+                const ownerFromQuery = params.get('owner');
+                if (ownerFromQuery) return ownerFromQuery;
+            }
+
+            if (/^[A-Za-z0-9_-]+$/.test(raw)) return raw;
+            return null;
+        }
+
+        function handleQRCode(data) {
+            const ownerId = extractOwnerIdFromQr(data);
+            if (ownerId) selectCafe(ownerId);
+            else showToast('That QR code is not a valid PrintFlow cafe code.', true);
+        }
+
+        let searchTimer = null;
+        document.getElementById('search-input').addEventListener('input', e => {
+            clearTimeout(searchTimer);
+            const query = e.target.value.trim();
+            const results = document.getElementById('search-results');
+            if (!query) {
+                results.innerHTML = '';
+                return;
+            }
+            searchTimer = setTimeout(async() => {
+                const {
+                    owners
+                } = await API.searchOwners(query);
+                if (owners.length === 0) {
+                    results.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">No cafes found</p>';
+                    return;
+                }
+                results.innerHTML = owners.map(c => `
+      <div class="cafe-card bg-slate-50 rounded-xl p-4" onclick="selectCafe('${c.id}')">
+        <p class="font-bold text-slate-800">${c.shop_name}</p>
+        <p class="text-xs text-slate-500 mt-1"><i class="fas fa-location-dot mr-1"></i>${c.location || 'Location not set'}</p>
+      </div>`).join('');
+            }, 250);
+        });
+
+        function selectCafe(ownerId) {
+            if (!ownerId) return;
+            window.location.href = `customer-order.html?owner=${encodeURIComponent(ownerId)}`;
+        }
+    </script>
+</body>
+
+</html>

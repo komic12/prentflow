@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PrintFlow – Owner Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/all.min.css">
+    <script src="js/qrcode.min.js"></script>
+    <script src="js/owner-notifications.js"></script>
+    <style>
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .nav-item.active {
+            background: #2563eb !important;
+            color: #fff !important;
+        }
+        
+        .status-pill {
+            font-size: .62rem;
+            font-weight: 700;
+            padding: 2px 9px;
+            border-radius: 999px;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            display: inline-block;
+        }
+        
+        .print-page {
+            page-break-after: always;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 24px;
+            background: white;
+            margin-bottom: 16px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+        }
+        
+        .print-sheet {
+            border: 1px solid #cbd5e1;
+            border-radius: 18px;
+            background: white;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+            padding: 24px;
+            margin-bottom: 14px;
+            min-height: 240px;
+            overflow: hidden;
+        }
+        
+        .print-sheet.portrait {
+            aspect-ratio: 8.5 / 11;
+        }
+        
+        .print-sheet.landscape {
+            aspect-ratio: 11 / 8.5;
+        }
+        
+        @media print {
+            body {
+                background: white !important;
+            }
+            body>*:not(#print-frame) {
+                display: none !important;
+            }
+            #print-frame {
+                display: block !important;
+                position: fixed;
+                inset: 0;
+                background: #fff;
+                padding: 24px;
+                z-index: 9999;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-slate-100 min-h-screen">
+
+    <div id="print-frame" style="display:none;">
+        <div id="print-content"></div>
+    </div>
+
+    <div class="flex min-h-screen">
+
+        <aside id="sidebar" class="w-64 bg-slate-900 text-white fixed top-0 left-0 h-full z-40 flex-col hidden lg:flex">
+            <div class="px-6 py-5 border-b border-slate-700">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0"><i class="fas fa-print text-sm"></i></div>
+                    <div>
+                        <p class="font-bold text-sm">PrintFlow</p>
+                        <p class="text-blue-400 text-xs">Owner Panel</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div id="sb-avatar" class="w-9 h-9 bg-slate-700 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0"></div>
+                    <div class="overflow-hidden">
+                        <p id="sb-shopname" class="font-semibold text-sm truncate"></p>
+                        <p id="sb-email" class="text-slate-400 text-xs truncate"></p>
+                    </div>
+                </div>
+            </div>
+            <nav class="flex-1 px-4 py-5 space-y-1">
+                <button onclick="showTab('dashboard')" id="nav-dashboard" class="nav-item active w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-white transition"><i class="fas fa-gauge-high w-4"></i> Dashboard</button>
+                <button onclick="showTab('orders')" id="nav-orders" class="nav-item w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition"><i class="fas fa-list-check w-4"></i> Print Queue<span id="pending-badge" class="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5 hidden"></span></button>
+                <button onclick="showTab('services')" id="nav-services" class="nav-item w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition"><i class="fas fa-tags w-4"></i> Services</button>
+                <button onclick="showTab('documents')" id="nav-documents" class="nav-item w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition"><i class="fas fa-file-alt w-4"></i> Documents</button>
+                <button onclick="showTab('profile')" id="nav-profile" class="nav-item w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition"><i class="fas fa-user-gear w-4"></i> My Profile</button>
+                <button onclick="showTab('qr')" id="nav-qr" class="nav-item w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition"><i class="fas fa-qrcode w-4"></i> My QR Code</button>
+            </nav>
+            <div class="px-4 pb-5">
+                <button onclick="doLogout()" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-red-400 hover:bg-slate-800 text-sm font-medium w-full transition"><i class="fas fa-arrow-right-from-bracket w-4"></i> Sign Out</button>
+            </div>
+        </aside>
+
+        <div class="lg:hidden fixed top-0 left-0 right-0 z-30 bg-slate-900 text-white px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center"><i class="fas fa-print text-xs"></i></div><span id="mob-shopname" class="font-bold text-sm"></span></div>
+            <div class="flex items-center gap-2"><span id="mob-pending-badge" class="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full hidden"></span><button onclick="toggleMobileMenu()" class="w-8 h-8 flex items-center justify-center"><i class="fas fa-bars"></i></button></div>
+        </div>
+
+        <div id="mobile-menu" class="lg:hidden fixed inset-0 z-50 hidden">
+            <div onclick="toggleMobileMenu()" class="absolute inset-0 bg-black/60"></div>
+            <div class="absolute left-0 top-0 bottom-0 w-64 bg-slate-900 text-white p-5 overflow-y-auto">
+                <button onclick="toggleMobileMenu()" class="absolute top-4 right-4 text-slate-400 text-lg"><i class="fas fa-times"></i></button>
+                <div class="flex items-center gap-3 mt-8 mb-6">
+                    <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center"><i class="fas fa-print text-sm"></i></div>
+                    <div>
+                        <p class="font-bold text-sm">PrintFlow</p>
+                        <p class="text-blue-400 text-xs">Owner Panel</p>
+                    </div>
+                </div>
+                <div class="space-y-1">
+                    <button onclick="showTab('dashboard');toggleMobileMenu()" class="w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800"><i class="fas fa-gauge-high w-4"></i> Dashboard</button>
+                    <button onclick="showTab('orders');toggleMobileMenu()" class="w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800"><i class="fas fa-list-check w-4"></i> Print Queue</button>
+                    <button onclick="showTab('services');toggleMobileMenu()" class="w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800"><i class="fas fa-tags w-4"></i> Services</button>
+                    <button onclick="showTab('documents');toggleMobileMenu()" class="w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800"><i class="fas fa-file-alt w-4"></i> Documents</button>
+                    <button onclick="showTab('profile');toggleMobileMenu()" class="w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800"><i class="fas fa-user-gear w-4"></i> Profile</button>
+                    <button onclick="showTab('qr');toggleMobileMenu()" class="w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800"><i class="fas fa-qrcode w-4"></i> My QR Code</button>
+                    <button onclick="doLogout()" class="flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 text-sm font-medium w-full mt-4"><i class="fas fa-sign-out w-4"></i> Sign Out</button>
+                </div>
+            </div>
+        </div>
+
+        <main class="flex-1 lg:ml-64 pt-16 lg:pt-0">
+            <div class="max-w-6xl mx-auto px-4 py-6">
+
+                <!-- DASHBOARD -->
+                <div id="tab-dashboard" class="tab-content active">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h1 class="text-2xl font-bold text-slate-800">Dashboard</h1>
+                            <p id="dash-welcome" class="text-slate-500 text-sm"></p>
+                        </div>
+                        <span id="store-active-badge" class="hidden sm:flex items-center gap-2 text-xs text-green-600 bg-green-50 px-3 py-2 rounded-full border border-green-200 font-semibold"><span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>Store
+                        Active
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center"><i class="fas fa-shopping-cart text-blue-600 text-sm"></i></div><span class="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full font-semibold">Today</span></div>
+                            <p id="stat-today-orders" class="text-2xl font-black text-slate-800">0</p>
+                            <p class="text-xs text-slate-500 mt-0.5">Orders Today</p>
+                        </div>
+                        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center"><i class="fas fa-coins text-green-600 text-sm"></i></div><span class="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full font-semibold">Today</span></div>
+                            <p id="stat-today-rev" class="text-2xl font-black text-slate-800">KES 0</p>
+                            <p class="text-xs text-slate-500 mt-0.5">Today's Revenue</p>
+                        </div>
+                        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center"><i class="fas fa-wallet text-purple-600 text-sm"></i></div><span class="text-xs text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full font-semibold">Total</span></div>
+                            <p id="stat-total-rev" class="text-2xl font-black text-slate-800">KES 0</p>
+                            <p class="text-xs text-slate-500 mt-0.5">All-Time Revenue</p>
+                        </div>
+                        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center"><i class="fas fa-hourglass-half text-red-600 text-sm"></i></div>
+                            </div>
+                            <p id="stat-pending" class="text-2xl font-black text-slate-800">0</p>
+                            <p class="text-xs text-slate-500 mt-0.5">Pending Jobs</p>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold text-slate-800">Recent Print Jobs</h3><button onclick="showTab('orders')" class="text-xs text-blue-600 hover:underline font-semibold">View All →</button></div>
+                        <div id="recent-orders-table" class="overflow-x-auto"></div>
+                    </div>
+                </div>
+
+                <!-- PRINT QUEUE -->
+                <div id="tab-orders" class="tab-content">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h1 class="text-2xl font-bold text-slate-800">Print Queue</h1>
+                            <p class="text-slate-500 text-sm">Manage and advance print jobs</p>
+                        </div>
+                        <button onclick="renderOrders()" class="flex items-center gap-2 border border-slate-200 bg-white text-slate-600 text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-slate-50 transition"><i class="fas fa-rotate-right"></i> Refresh</button>
+                    </div>
+                    <div class="flex gap-2 mb-5 overflow-x-auto pb-1">
+                        <button onclick="filterOrders('all')" id="filt-all" class="filter-btn flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold bg-blue-600 text-white border border-blue-600 transition">All</button>
+                        <button onclick="filterOrders('pending')" id="filt-pending" class="filter-btn flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold bg-white text-slate-600 border border-slate-200 hover:border-blue-300 transition">Pending</button>
+                        <button onclick="filterOrders('seen')" id="filt-seen" class="filter-btn flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold bg-white text-slate-600 border border-slate-200 hover:border-blue-300 transition">Seen</button>
+                        <button onclick="filterOrders('printing')" id="filt-printing" class="filter-btn flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold bg-white text-slate-600 border border-slate-200 hover:border-blue-300 transition">Printing</button>
+                        <button onclick="filterOrders('printed')" id="filt-printed" class="filter-btn flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold bg-white text-slate-600 border border-slate-200 hover:border-blue-300 transition">Printed</button>
+                        <button onclick="filterOrders('ready')" id="filt-ready" class="filter-btn flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold bg-white text-slate-600 border border-slate-200 hover:border-blue-300 transition">Ready</button>
+                    </div>
+                    <div id="orders-container" class="space-y-3"></div>
+                </div>
+
+                <!-- SERVICES -->
+                <div id="tab-services" class="tab-content">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h1 class="text-2xl font-bold text-slate-800">Services</h1>
+                            <p class="text-slate-500 text-sm">Configure printing services you offer</p>
+                        </div>
+                        <button onclick="showAddSvc()" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2.5 rounded-xl transition text-sm"><i class="fas fa-plus"></i> Add Service</button>
+                    </div>
+                    <div id="add-svc-form" class="hidden bg-white rounded-2xl border border-blue-200 p-5 mb-5 shadow-sm">
+                        <h3 class="font-bold text-slate-800 mb-4">New Service</h3>
+                        <div class="flex gap-3 flex-wrap">
+                            <div class="flex-1 min-w-40">
+                                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Service Name</label>
+                                <input id="new-svc-name" type="text" placeholder="e.g. Color Print" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            </div>
+                            <div class="w-36">
+                                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Price/Page (KES)</label>
+                                <input id="new-svc-price" type="number" min="0" step="0.5" placeholder="25" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            </div>
+                            <div class="flex items-end gap-2">
+                                <button onclick="addSvc()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition">Save</button>
+                                <button onclick="hideAddSvc()" class="border border-slate-200 text-slate-600 px-4 py-2.5 rounded-xl text-sm hover:bg-slate-50 transition">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="services-list" class="space-y-3"></div>
+                </div>
+
+                <!-- DOCUMENTS -->
+                <div id="tab-documents" class="tab-content">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h1 class="text-2xl font-bold text-slate-800">All Documents</h1>
+                            <p class="text-slate-500 text-sm">Browse uploaded files and open previews quickly</p>
+                        </div>
+                    </div>
+                    <div id="documents-list" class="space-y-3"></div>
+                </div>
+
+                <!-- PROFILE -->
+                <div id="tab-profile" class="tab-content">
+                    <div class="mb-6">
+                        <h1 class="text-2xl font-bold text-slate-800">My Profile</h1>
+                        <p class="text-slate-500 text-sm">Update your shop details</p>
+                    </div>
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <div class="sm:col-span-2 flex flex-col sm:flex-row gap-4 items-start sm:items-center bg-slate-50 rounded-xl p-4 border border-slate-200">
+                                <div id="p-avatar-preview" class="w-16 h-16 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-xl font-bold"></div>
+                                <div class="flex-1">
+                                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Profile Photo</label>
+                                    <input id="p-image-input" type="file" accept="image/*" class="block w-full text-sm text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700">
+                                    <p class="text-xs text-slate-400 mt-2">This photo helps customers recognize your shop.</p>
+                                </div>
+                            </div>
+                            <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Full Name</label><input id="p-name" type="text" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50"></div>
+                            <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Shop Name</label><input id="p-shop" type="text" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50"></div>
+                            <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Phone Number (M-Pesa payout)</label><input id="p-phone" type="tel" placeholder="0712345678" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50"></div>
+                            <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Location</label><input id="p-location" type="text" placeholder="e.g. Kisii, Igonga Centre" class="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50"></div>
+                            <div class="sm:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 rounded-xl p-4 border border-slate-200">
+                                <div>
+                                    <p class="text-xs text-slate-400">Email (read-only)</p>
+                                    <p id="p-email-display" class="text-sm font-semibold text-slate-700 mt-0.5"></p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-slate-400">Account Status</p><span id="p-status-display" class="inline-flex items-center gap-1 mt-0.5 text-xs font-bold px-2.5 py-1 rounded-full bg-green-100 text-green-700"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>Active</span>
+                                </div>
+                            </div>
+                            <div class="sm:col-span-2 rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 to-blue-950 p-5 text-white shadow-sm">
+                                <div class="flex items-center justify-between gap-4">
+                                    <div class="flex items-center gap-3"><div id="profile-agent-icon" class="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-700"><i class="fas fa-link"></i></div><div><p class="text-xs font-semibold uppercase tracking-widest text-blue-200">Print agent</p><p id="profile-agent-status" class="mt-1 text-base font-bold">Checking connection…</p><p id="profile-agent-detail" class="mt-1 text-xs text-slate-300">The website will show the live laptop connection here.</p></div></div>
+                                    <button onclick="connectPrinter()" class="rounded-xl bg-white/10 px-3 py-2 text-xs font-bold text-white hover:bg-white/20">Check now</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-6"><button onclick="saveProfile()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 rounded-xl transition flex items-center gap-2"><i class="fas fa-floppy-disk"></i> Save Profile</button></div>
+                    </div>
+                </div>
+
+                <!-- QR CODE -->
+                <div id="tab-qr" class="tab-content">
+                    <div class="mb-6">
+                        <h1 class="text-2xl font-bold text-slate-800">My QR Code</h1>
+                        <p class="text-slate-500 text-sm">Share this with customers to receive print orders</p>
+                    </div>
+                    <div class="max-w-sm mx-auto">
+                        <div class="bg-white rounded-3xl border border-slate-200 shadow-xl p-8 text-center">
+                            <div class="bg-slate-50 rounded-2xl p-4 mb-5 inline-block">
+                                <div id="qr-canvas"></div>
+                            </div>
+                            <h2 id="qr-shopname" class="text-lg font-bold text-slate-800"></h2>
+                            <p id="qr-url" class="text-xs text-slate-500 mt-1 mb-5 break-all"></p>
+                            <div class="space-y-3">
+                                <button onclick="downloadQR()" class="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition text-sm w-full"><i class="fas fa-download"></i> Download QR Code</button>
+                                <button onclick="buildQR()" class="flex items-center justify-center gap-2 border-2 border-slate-300 hover:border-blue-400 text-slate-600 hover:text-blue-600 font-bold py-3 rounded-xl transition text-sm w-full"><i class="fas fa-rotate-right"></i> Regenerate</button>
+                            </div>
+                            <div class="mt-5 bg-blue-50 rounded-xl p-4 border border-blue-100">
+                                <p class="text-xs text-blue-700 font-semibold mb-1">How to use</p>
+                                <p class="text-xs text-blue-600">Print and display at your counter. Customers scan it (or use PrintFlow's Scan Cafe tool) to place print orders directly from their phones.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <div id="print-preview-modal" class="fixed inset-0 z-[70] hidden bg-slate-950/70 p-3 sm:p-4">
+        <div class="mx-auto flex h-full w-full max-w-7xl items-center justify-center">
+            <div class="flex h-full max-h-[94vh] w-full flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+                <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-6">
+                    <div>
+                        <p class="text-sm font-semibold text-blue-600">Document print studio</p>
+                        <p id="print-preview-title" class="text-lg font-bold text-slate-800">Preparing print job</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="printPreparedPages()" class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"><i class="fas fa-print mr-2"></i>Print now</button>
+                        <button onclick="closePrintPreview()" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"><i class="fas fa-xmark mr-2"></i>Close</button>
+                    </div>
+                </div>
+                <div class="grid flex-1 overflow-hidden lg:grid-cols-[1.1fr_0.9fr]">
+                    <div class="border-b border-slate-200 p-4 lg:border-b-0 lg:border-r lg:p-5">
+                        <div class="mb-3 flex items-center justify-between">
+                            <div>
+                                <h3 class="font-semibold text-slate-800">Document preview</h3>
+                                <p class="text-sm text-slate-500">See the uploaded document clearly and edit the content side by side.</p>
+                            </div>
+                            <span id="print-page-summary" class="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">Preparing pages</span>
+                        </div>
+                        <div id="print-preview-frame" class="h-[56vh] overflow-auto rounded-2xl border border-slate-200 bg-slate-50 p-3"></div>
+                    </div>
+                    <div class="overflow-auto p-4 lg:p-5">
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <label class="mb-2 block text-sm font-semibold text-slate-700">Pages to print</label>
+                            <input id="print-page-input" type="text" placeholder="e.g. 1-3,5" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                            <p class="mt-2 text-xs text-slate-500">Enter page numbers or ranges. The selected pages are renumbered automatically for printing.</p>
+                            <button onclick="applySelectedPages()" class="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"><i class="fas fa-sliders mr-2"></i>Apply page selection</button>
+                            <div class="mt-4 grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Orientation</label>
+                                    <select id="print-orientation" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                                        <option value="portrait">Portrait</option>
+                                        <option value="landscape">Landscape</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Paper size</label>
+                                    <select id="print-paper-size" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                                        <option value="A4">A4</option>
+                                        <option value="Letter">Letter</option>
+                                        <option value="Legal">Legal</option>
+                                        <option value="A3">A3</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mt-4 grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Print mode</label>
+                                    <select id="print-color-mode" onchange="updatePrintInstructions()" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                                        <option value="bw">Black & White</option>
+                                        <option value="color">Color</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-end">
+                                    <label class="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
+                                        <input id="print-laminate" type="checkbox" onchange="updatePrintInstructions()" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                                        Print + Laminate
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="mt-3 grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Font size</label>
+                                    <select id="print-font-size" onchange="updatePrintInstructions()" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                                        <option value="10">10 pt</option>
+                                        <option value="12" selected>12 pt</option>
+                                        <option value="14">14 pt</option>
+                                        <option value="16">16 pt</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Margins</label>
+                                    <select id="print-margin-size" onchange="updatePrintInstructions()" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                                        <option value="narrow">Narrow</option>
+                                        <option value="normal" selected>Normal</option>
+                                        <option value="wide">Wide</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <!-- Double-sided printing option -->
+                            <div class="mt-4">
+                                <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Print sides</label>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <button type="button" id="sided-one-btn" onclick="setPrintSided('one-sided')" class="rounded-xl border-2 border-blue-600 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 transition"><i class="fas fa-file mr-1"></i>One-sided</button>
+                                    <button type="button" id="sided-two-btn" onclick="setPrintSided('two-sided')" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-400"><i class="fas fa-copy mr-1"></i>Both sides</button>
+                                </div>
+                                <div id="duplex-guide" class="hidden mt-2 rounded-xl bg-blue-50 border border-blue-200 p-3 text-xs text-blue-700">
+                                    <p class="font-semibold mb-1"><i class="fas fa-info-circle mr-1"></i>Double-sided printing guide:</p>
+                                    <ol class="list-decimal list-inside space-y-1">
+                                        <li>Print all <strong>odd pages</strong> first (front sides)</li>
+                                        <li>Flip the paper stack and reload into printer</li>
+                                        <li>Print all <strong>even pages</strong> (back sides)</li>
+                                    </ol>
+                                    <div id="duplex-page-plan" class="mt-2 font-semibold text-blue-800"></div>
+                                </div>
+                            </div>
+                            <!-- Printer connection -->
+                            <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2"><i class="fas fa-plug mr-1"></i>Printer connection</p>
+                                <button onclick="connectPrinter()" id="connect-printer-btn" class="w-full rounded-xl border border-blue-200 bg-white hover:bg-blue-50 text-blue-700 text-sm font-semibold px-3 py-2 transition flex items-center justify-center gap-2">
+                                    <i class="fas fa-link"></i> Connect Print Agent
+                                </button>
+                                <p id="printer-status" class="mt-2 text-xs text-slate-500 text-center">No printer connected</p>
+                                <label class="mt-3 flex items-center gap-2 text-xs font-semibold text-slate-700">
+                                  <input id="auto-print-toggle" type="checkbox" onchange="setAutoPrintEnabled(this.checked)" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                                  Automatically print paid, non-edit orders
+                                </label>
+                                <p class="mt-1 text-xs text-slate-500">Orders that allow editing stay manual.</p>
+                            </div>
+                        </div>
+                        <div id="print-action-note" class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600"></div>
+                        <div id="print-instruction-summary" class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600"></div>
+                        <div id="print-editor-panel" class="mt-4 rounded-2xl border border-slate-200 p-4 hidden">
+                            <label class="mb-2 block text-sm font-semibold text-slate-700">Editable content</label>
+                            <textarea id="print-editable-content" rows="16" oninput="applySelectedPages()" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700 focus:border-blue-500 focus:outline-none"></textarea>
+                            <p class="mt-2 text-xs text-slate-500">Changes appear instantly in the live print preview on the left.</p>
+                        </div>
+                        <div id="page-selection-preview" class="mt-4 space-y-2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transition-opacity" style="opacity:0;pointer-events:none"></div>
+
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        let currentUser = null;
+        let allOrders = [];
+        let autoPrintEnabled = localStorage.getItem('printflow-auto-print') === 'true';
+        const autoPrintedOrders = new Set(JSON.parse(localStorage.getItem('printflow-auto-printed') || '[]'));
+
+        (async function init() {
+            currentUser = await requireAuth('owner');
+            if (!currentUser) return;
+            await refreshDashboard();
+            setInterval(updateAgentProfileStatus, 10000);
+        })();
+
+        async function refreshDashboard() {
+            const {
+                user
+            } = await API.me();
+            currentUser = user;
+
+            document.getElementById('sb-avatar').textContent = currentUser.name.charAt(0).toUpperCase();
+            document.getElementById('sb-shopname').textContent = currentUser.shop_name;
+            document.getElementById('sb-email').textContent = currentUser.email;
+            document.getElementById('mob-shopname').textContent = currentUser.shop_name;
+            document.getElementById('dash-welcome').textContent = `Welcome back, ${currentUser.name}!`;
+            document.getElementById('store-active-badge').classList.toggle('hidden', currentUser.status !== 'Active');
+
+            const {
+                orders
+            } = await API.myOrders();
+            allOrders = orders;
+            const autoPrintToggle = document.getElementById('auto-print-toggle');
+            if (autoPrintToggle) autoPrintToggle.checked = autoPrintEnabled;
+            await autoPrintPaidOrders(orders);
+
+            const today = new Date().toDateString();
+            const todayOrds = orders.filter(o => new Date(o.created_at).toDateString() === today);
+            const pending = orders.filter(o => ['pending', 'seen', 'printing'].includes(o.status)).length;
+
+            document.getElementById('stat-today-orders').textContent = todayOrds.length;
+            document.getElementById('stat-today-rev').textContent = money(todayOrds.reduce((a, o) => a + o.total_price, 0));
+            document.getElementById('stat-total-rev').textContent = money(orders.reduce((a, o) => a + o.total_price, 0));
+            document.getElementById('stat-pending').textContent = pending;
+
+            ['pending-badge', 'mob-pending-badge'].forEach(id => {
+                const el = document.getElementById(id);
+                if (pending > 0) {
+                    el.textContent = pending;
+                    el.classList.remove('hidden');
+                } else el.classList.add('hidden');
+            });
+
+            renderRecentOrders(orders.slice(0, 6));
+
+            updateAgentProfileStatus();
+            document.getElementById('p-name').value = currentUser.name;
+            document.getElementById('p-shop').value = currentUser.shop_name;
+            document.getElementById('p-phone').value = currentUser.phone || '';
+            document.getElementById('p-location').value = currentUser.location || '';
+            document.getElementById('p-email-display').textContent = currentUser.email;
+            document.getElementById('p-status-display').className = `inline-flex items-center gap-1 mt-0.5 text-xs font-bold px-2.5 py-1 rounded-full ${currentUser.status==='Active'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}`;
+            document.getElementById('p-status-display').innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-current"></span>${currentUser.status}`;
+            const avatarPreview = document.getElementById('p-avatar-preview');
+            avatarPreview.innerHTML = currentUser.profile_image ? `<img src="${currentUser.profile_image}" alt="Profile" class="w-full h-full rounded-2xl object-cover">` : currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U';
+        }
+
+          async function setAutoPrintEnabled(enabled) {
+            autoPrintEnabled = Boolean(enabled);
+            localStorage.setItem('printflow-auto-print', String(autoPrintEnabled));
+            try { await fetch('http://127.0.0.1:17321/settings', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({autoPrint: autoPrintEnabled}) }); } catch (_) {}
+            showToast(autoPrintEnabled ? 'Automatic printing enabled on the connected agent.' : 'Automatic printing disabled.');
+          }
+
+          async function autoPrintPaidOrders(orders) {
+            if (!autoPrintEnabled) return;
+            for (const order of orders) {
+              const editable = (order.allow_edit || 'no').toLowerCase() === 'yes';
+              const hasFile = Boolean(order.file_path || order.file_storage_path);
+              if (order.payment_status !== 'paid' || editable || !hasFile || autoPrintedOrders.has(order.id)) continue;
+              try {
+                const url = API.orderPagesUrl(order.id, order.selected_pages || 'all');
+                await sendToLocalPrintAgent(url, `${order.small_order_id || order.order_code}-${order.file_name || 'document.pdf'}`);
+                autoPrintedOrders.add(order.id);
+                localStorage.setItem('printflow-auto-printed', JSON.stringify([...autoPrintedOrders].slice(-200)));
+                if (order.status === 'pending' || order.status === 'seen') await API.advanceOrderStatus(order.id, 'printing');
+                showToast(`Order ${order.small_order_id || order.order_code} sent to printer.`);
+              } catch (error) {
+                console.warn('Automatic printing skipped:', order.id, error.message || error);
+              }
+            }
+          }
+
+        function renderAgentProfileStatus(connected, detail) {
+            const statusEl = document.getElementById('profile-agent-status');
+            const detailEl = document.getElementById('profile-agent-detail');
+            const iconEl = document.getElementById('profile-agent-icon');
+            if (!statusEl) return;
+          if (connected) {
+            statusEl.textContent = 'Connected successfully';
+            detailEl.textContent = detail || 'PrintFlow Agent is connected to this profile.';
+            iconEl.className = 'flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500';
+          } else {
+                statusEl.textContent = 'Agent not connected';
+            detailEl.textContent = detail || 'Sign in to the Windows PrintFlow Agent and keep it running.';
+                iconEl.className = 'flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-700';
+            }
+        }
+
+        async function updateAgentProfileStatus() {
+          try {
+            const websiteStatus = await API.get('/api/auth/agent-status');
+            if (!websiteStatus.connected) throw new Error('Agent heartbeat is offline');
+            renderAgentProfileStatus(true, `${websiteStatus.owner?.shop_name || 'Cyber owner'} · Website heartbeat received`);
+            return true;
+          } catch (_) {
+            renderAgentProfileStatus(false);
+            return false;
+          }
+        }
+
+        function showTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => {
+                n.classList.remove('active');
+                n.classList.add('text-slate-400');
+                n.classList.remove('text-white');
+            });
+            document.getElementById('tab-' + tab).classList.add('active');
+            const nav = document.getElementById('nav-' + tab);
+            if (nav) {
+                nav.classList.add('active', 'text-white');
+                nav.classList.remove('text-slate-400');
+            }
+            if (tab === 'orders') renderOrders();
+            if (tab === 'services') renderServices();
+            if (tab === 'documents') renderDocuments();
+            if (tab === 'qr') buildQR();
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+
+        function toggleMobileMenu() {
+            document.getElementById('mobile-menu').classList.toggle('hidden');
+        }
+        async function doLogout() {
+            await API.logout();
+            window.location.href = 'index.html';
+        }
+
+        const STATUS_COLORS = {
+            pending: 'bg-yellow-100 text-yellow-700',
+            seen: 'bg-blue-100 text-blue-700',
+            printing: 'bg-purple-100 text-purple-700',
+            printed: 'bg-green-100 text-green-700',
+            ready: 'bg-emerald-100 text-emerald-700',
+            picked: 'bg-slate-100 text-slate-700'
+        };
+
+        function renderRecentOrders(orders) {
+            const el = document.getElementById('recent-orders-table');
+            if (orders.length === 0) {
+                el.innerHTML = `<div class="text-center py-8 text-slate-400"><i class="fas fa-inbox text-3xl mb-3 block"></i><p class="text-sm">No orders yet. Share your QR code!</p></div>`;
+                return;
+            }
+            el.innerHTML = `<table class="w-full text-sm"><thead><tr class="text-left text-xs text-slate-500 uppercase tracking-wide border-b border-slate-100">
+    <th class="pb-3 font-semibold">Code</th><th class="pb-3 font-semibold">Customer</th><th class="pb-3 font-semibold">Amount</th><th class="pb-3 font-semibold">Status</th><th class="pb-3 font-semibold hidden sm:table-cell">Date</th>
+  </tr></thead><tbody class="divide-y divide-slate-50">
+    ${orders.map(o => `<tr class="hover:bg-slate-50">
+      <td class="py-3 font-mono font-bold text-blue-600 text-xs">${o.small_order_id||'—'}</td>
+      <td class="py-3 text-slate-600">${o.customer_name||'Walk-in'}</td>
+      <td class="py-3 font-bold text-slate-800">${money(o.total_price)}</td>
+      <td class="py-3"><span class="status-pill ${STATUS_COLORS[o.status]||'bg-slate-100 text-slate-600'}">${o.status}</span></td>
+      <td class="py-3 text-slate-500 text-xs hidden sm:table-cell">${new Date(o.created_at).toLocaleDateString('en-KE')}</td>
+    </tr>`).join('')}
+  </tbody></table>`;
+}
+
+let currentFilter = 'all';
+async function renderOrders() {
+  const { orders } = await API.myOrders();
+  allOrders = orders;
+  const filtered = currentFilter === 'all' ? orders : orders.filter(o => o.status === currentFilter);
+  const container = document.getElementById('orders-container');
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div class="bg-white rounded-2xl border border-slate-200 p-10 text-center"><i class="fas fa-inbox text-4xl text-slate-300 mb-3 block"></i><p class="text-slate-500 font-medium">${currentFilter === 'all' ? 'No print jobs yet' : 'No '+currentFilter+' jobs'}</p></div>`;
+    return;
+  }
+
+  const borderMap = {pending:'border-l-yellow-400',seen:'border-l-blue-400',printing:'border-l-purple-400',printed:'border-l-green-400',ready:'border-l-emerald-400'};
+const nextMap   = {pending:'seen',seen:'printing',printing:'printed',printed:'ready',ready:'picked'};
+    const nextLabel = {pending:'Mark Seen',seen:'Start Printing',printing:'Mark Printed',printed:'Ready for Pickup',ready:'Mark Picked'};
+
+  container.innerHTML = filtered.map(o => {
+    let svcs = []; try { svcs = JSON.parse(o.services_json||'[]'); } catch {}
+    const totalCopies = Math.max(1, Number(o.copies || (svcs[0] && svcs[0].copies) || 1));
+    const svcTags = svcs.length > 0
+      ? svcs.map(s => `<span class="text-xs bg-slate-100 text-slate-700 px-3 py-1 rounded-full font-medium">${s.name} · ${s.pages}pg × ${s.copies} copies · ${s.color}</span>`).join('')
+      : `<span class="text-xs bg-slate-100 text-slate-700 px-3 py-1 rounded-full font-medium">${o.pages}pg × ${totalCopies} copies · ${o.color}</span>`;
+    const svcDesc = svcs.length > 0 ? svcs.map(s=>`${s.name}: ${s.pages}pg × ${s.copies} (${s.color})`).join(', ') : `${o.pages}pg × ${o.copies} (${o.color})`;
+    const nextBtn = nextMap[o.status]
+      ? `<button onclick="advanceStatus('${o.id}','${nextMap[o.status]}')" class="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"><i class="fas fa-arrow-right"></i> ${nextLabel[o.status]}</button>`
+      : `<span class="flex items-center gap-1.5 bg-emerald-100 text-emerald-700 text-xs font-bold px-4 py-2.5 rounded-xl"><i class="fas fa-circle-check"></i> Completed</span>`;
+    const payBadge = o.payment_status === 'paid'
+      ? `<span class="text-xs font-bold text-emerald-600"><i class="fas fa-check-circle"></i> Paid${o.mpesa_receipt ? ' · '+o.mpesa_receipt : ''}</span>`
+      : `<span class="text-xs font-bold text-amber-600"><i class="fas fa-clock"></i> Payment pending ${o.payment_method === 'cash' ? '(cash)' : '(M-Pesa)'}</span>`;
+    const markPaidBtn = (o.payment_status !== 'paid' && ['printed', 'ready'].includes(o.status))
+      ? `<button onclick="markPaid('${o.id}')" class="flex items-center gap-1.5 border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold px-3 py-2.5 rounded-xl transition"><i class="fas fa-money-bill"></i> Mark Paid</button>`
+      : '';
+    // Download only allowed if client said 'yes' to editing; otherwise view-only
+    const allowEditFlag = (o.allow_edit || 'no').toLowerCase() === 'yes';
+    const fileBtn = (o.file_path || o.file_storage_path)
+      ? (allowEditFlag
+          ? `<a href="${API.orderFileUrl(o.id)}" class="flex items-center gap-1.5 border border-green-300 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold px-3 py-2.5 rounded-xl transition" title="Client allowed editing"><i class="fas fa-download"></i> Download to Edit</a>`
+          : `<span class="flex items-center gap-1.5 border border-amber-200 bg-amber-50 text-amber-700 text-xs font-semibold px-3 py-2.5 rounded-xl" title="Client did not allow editing — view only"><i class="fas fa-eye"></i> View Only</span>`)
+      : '';
+
+    return `<div class="bg-white rounded-2xl border border-slate-200 border-l-4 ${borderMap[o.status]||'border-l-slate-300'} shadow-sm p-5">
+      <div class="flex items-start justify-between gap-3 mb-4 flex-wrap">
+        <div class="flex items-center gap-3">
+          <div class="text-center"><div class="text-3xl font-black text-blue-600 font-mono leading-none">${o.small_order_id||'—'}</div><div class="text-xs text-slate-400 mt-0.5">Pickup Code</div></div>
+          <div class="w-px h-10 bg-slate-200"></div>
+          <div><p class="font-bold text-slate-800">${o.customer_name||'Walk-in Customer'}</p><p class="text-xs text-slate-500">${o.selected_pages && o.selected_pages !== 'all' ? 'Pages: ' + o.selected_pages : 'All pages'}</p></div>
+        </div>
+        <div class="text-right flex-shrink-0">
+          <p class="text-xl font-black text-slate-800">${money(o.total_price)}</p>
+          <span class="status-pill ${STATUS_COLORS[o.status]||'bg-slate-100 text-slate-600'}">${o.status}</span>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2 mb-3">${svcTags}</div>
+      <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
+        <span class="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700"><i class="fas fa-copy mr-1"></i>${totalCopies} ${totalCopies === 1 ? 'copy' : 'copies'} requested</span>
+        ${o.file_name ? `<div class="flex items-center gap-2 text-xs text-slate-500"><i class="fas fa-file-alt text-red-500"></i><span class="truncate max-w-xs">${o.file_name}</span></div>` : '<span></span>'}
+        ${payBadge}
+      </div>
+      <div class="flex flex-wrap gap-2 items-center">
+        ${nextBtn}
+        ${markPaidBtn}
+        ${fileBtn}
+        <button onclick="openPrintPreview('${o.id}','${(o.file_name||'N/A').replace(/'/g, "\\'")}','${(o.customer_name||'Walk-in').replace(/'/g, "\\'")}','${svcDesc.replace(/'/g, "\\'")}', '${o.allow_edit || 'no'}', ${totalCopies})"
+          class="flex items-center gap-1.5 border-2 border-slate-300 hover:border-blue-400 text-slate-600 hover:text-blue-600 text-xs font-bold px-4 py-2.5 rounded-xl transition"><i class="fas fa-print"></i> Print Job</button>
+        <a href="receipt.html?order_id=${encodeURIComponent(o.id)}" target="_blank" class="flex items-center gap-1.5 border border-slate-200 hover:bg-slate-50 text-slate-500 text-xs font-semibold px-3 py-2.5 rounded-xl transition"><i class="fas fa-receipt"></i> Receipt</a>
+        <span class="ml-auto text-xs text-slate-400">${new Date(o.created_at).toLocaleString('en-KE',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'})}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterOrders(status) {
+  currentFilter = status;
+  document.querySelectorAll('.filter-btn').forEach(b => { b.className = 'filter-btn flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold bg-white text-slate-600 border border-slate-200 hover:border-blue-300 transition'; });
+  document.getElementById('filt-'+status).className = 'filter-btn flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold bg-blue-600 text-white border border-blue-600 transition';
+  renderOrders();
+}
+
+async function advanceStatus(orderId, newStatus) {
+  try {
+    await API.advanceOrderStatus(orderId, newStatus);
+    showToast('Status updated to: ' + newStatus);
+    await renderOrders();
+    await refreshDashboard();
+  } catch (err) { showToast(err.message || 'Could not update status.', true); }
+}
+
+async function markPaid(orderId) {
+  try {
+    await API.markOrderPaid(orderId);
+    showToast('Order marked as paid.');
+    await renderOrders();
+    await refreshDashboard();
+  } catch (err) { showToast(err.message || 'Could not mark order as paid.', true); }
+}
+
+async function renderDocuments() {
+  const { orders } = await API.myOrders();
+  const el = document.getElementById('documents-list');
+  const withFiles = orders.filter(o => o.file_path);
+  if (withFiles.length === 0) {
+    el.innerHTML = `<div class="bg-white rounded-2xl border border-slate-200 p-10 text-center"><i class="fas fa-file-circle-xmark text-4xl text-slate-300 mb-3 block"></i><p class="text-slate-500 font-medium">No uploaded documents yet.</p></div>`;
+    return;
+  }
+  el.innerHTML = withFiles.map(o => `
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+      <div class="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <p class="font-bold text-slate-800">${o.file_name || 'Uploaded document'}</p>
+          <p class="text-xs text-slate-500 mt-1">${o.customer_name || 'Walk-in customer'} · ${money(o.total_price)} · ${o.small_order_id || '—'}</p>
+        </div>
+        <span class="text-xs font-semibold px-3 py-1 rounded-full ${STATUS_COLORS[o.status] || 'bg-slate-100 text-slate-600'}">${o.status}</span>
+      </div>
+      <div class="flex flex-wrap gap-2 mt-4">
+        <button onclick="openPrintPreview('${o.id}','${(o.file_name||'N/A').replace(/'/g, "\\'")}', '${(o.customer_name||'Walk-in').replace(/'/g, "\\'")}', '${(JSON.parse(o.services_json||'[]').map(s=>`${s.name}:${s.pages}pg×${s.copies}`).join(', ') || 'Print job').replace(/'/g, "\\'")}', '${o.allow_edit || 'no'}', ${Math.max(1, Number(o.copies || 1))})" class="flex items-center gap-1.5 border border-blue-200 bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-2.5 rounded-xl transition"><i class="fas fa-eye"></i> View Document</button>
+        ${(o.allow_edit||'no').toLowerCase()==='yes'
+          ? `<a href="${API.orderFileUrl(o.id)}" class="flex items-center gap-1.5 border border-green-300 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold px-3 py-2.5 rounded-xl transition"><i class="fas fa-download"></i> Download to Edit</a>`
+          : `<span class="flex items-center gap-1.5 border border-amber-200 bg-amber-50 text-amber-700 text-xs font-semibold px-3 py-2.5 rounded-xl" title="View only - client did not allow editing"><i class="fas fa-lock"></i> View Only</span>`
+        }
+        <a href="receipt.html?order_id=${encodeURIComponent(o.id)}" target="_blank" class="flex items-center gap-1.5 border border-slate-200 hover:bg-slate-50 text-slate-500 text-xs font-semibold px-3 py-2.5 rounded-xl transition"><i class="fas fa-receipt"></i> Receipt</a>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function renderServices() {
+  const { services } = await API.myServices();
+  const el = document.getElementById('services-list');
+  if (services.length === 0) {
+    el.innerHTML = `<div class="bg-white rounded-2xl border border-slate-200 p-10 text-center"><i class="fas fa-tags text-4xl text-slate-300 mb-3 block"></i><p class="text-slate-500 font-medium">No services yet. Add your first!</p></div>`;
+    return;
+  }
+  el.innerHTML = services.map(svc => {
+    const iconMap = {'color':'palette','bind':'book','lam':'layer-group','visit':'id-card','photo':'image'};
+    const key = Object.keys(iconMap).find(k => svc.name.toLowerCase().includes(k));
+    const icon = key ? iconMap[key] : 'print';
+    return `<div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5" id="svc-row-${svc.id}">
+      <div class="flex items-center gap-4 flex-wrap">
+        <div class="w-11 h-11 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0"><i class="fas fa-${icon} text-blue-600"></i></div>
+        <div class="flex-1 min-w-32"><input type="text" value="${svc.name}" id="svc-name-${svc.id}" class="font-bold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:outline-none w-full text-sm pb-0.5 transition"></div>
+        <div class="flex items-center gap-1.5 text-sm">
+          <span class="text-slate-500 text-xs">KES</span>
+          <input type="number" value="${svc.price_per_page}" id="svc-price-${svc.id}" min="0" step="0.5" class="w-20 text-center font-bold text-blue-600 border border-slate-200 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
+          <span class="text-slate-400 text-xs">/page</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="toggleSvcEnabled('${svc.id}')" id="toggle-${svc.id}" class="relative w-12 h-6 rounded-full transition-colors ${svc.enabled ? 'bg-blue-600' : 'bg-slate-300'}" title="${svc.enabled?'Enabled':'Disabled'}">
+            <span class="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${svc.enabled ? 'translate-x-6' : 'translate-x-0.5'}"></span>
+          </button>
+          <button onclick="saveSvc('${svc.id}')" class="text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition" title="Save"><i class="fas fa-floppy-disk"></i></button>
+          <button onclick="deleteSvc('${svc.id}')" class="text-red-500 hover:bg-red-50 p-2 rounded-lg transition" title="Delete"><i class="fas fa-trash"></i></button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function showAddSvc() { document.getElementById('add-svc-form').classList.remove('hidden'); }
+function hideAddSvc() { document.getElementById('add-svc-form').classList.add('hidden'); }
+
+async function addSvc() {
+  const name  = document.getElementById('new-svc-name').value.trim();
+  const price = parseFloat(document.getElementById('new-svc-price').value);
+  if (!name || isNaN(price) || price < 0) return showToast('Name and valid price required.', true);
+  try {
+    await API.addService({ name, price_per_page: price });
+    showToast('Service added!');
+    hideAddSvc();
+    document.getElementById('new-svc-name').value = '';
+    document.getElementById('new-svc-price').value = '';
+    renderServices();
+  } catch (err) { showToast(err.message, true); }
+}
+
+async function saveSvc(id) {
+  const name  = document.getElementById('svc-name-'+id).value.trim();
+  const price = parseFloat(document.getElementById('svc-price-'+id).value);
+  const btn   = document.getElementById('toggle-'+id);
+  const enabled = btn.classList.contains('bg-blue-600');
+  try {
+    await API.updateService(id, { name, price_per_page: price, enabled });
+    showToast('Service saved!');
+  } catch (err) { showToast(err.message, true); }
+}
+
+function toggleSvcEnabled(id) {
+  const btn = document.getElementById('toggle-'+id);
+  const dot = btn.querySelector('span');
+  const isEnabled = btn.classList.contains('bg-blue-600');
+  if (isEnabled) { btn.classList.replace('bg-blue-600','bg-slate-300'); dot.classList.replace('translate-x-6','translate-x-0.5'); }
+  else           { btn.classList.replace('bg-slate-300','bg-blue-600'); dot.classList.replace('translate-x-0.5','translate-x-6'); }
+}
+
+async function deleteSvc(id) {
+  if (!confirm('Delete this service?')) return;
+  try {
+    await API.deleteService(id);
+    document.getElementById('svc-row-'+id)?.remove();
+    showToast('Service deleted.');
+  } catch (err) { showToast(err.message, true); }
+}
+
+async function saveProfile() {
+  try {
+    const fileInput = document.getElementById('p-image-input');
+    await API.updateProfile({
+      name: document.getElementById('p-name').value.trim(),
+      shop_name: document.getElementById('p-shop').value.trim(),
+      phone: document.getElementById('p-phone').value.trim(),
+      location: document.getElementById('p-location').value.trim()
+    }, fileInput.files[0] || null);
+    fileInput.value = '';
+    showToast('Profile updated successfully!');
+    await refreshDashboard();
+  } catch (err) { showToast(err.message, true); }
+}
+
+let qrInstance = null;
+function buildQR() {
+  const url = `${window.location.origin}${window.location.pathname.replace('owner-dashboard.html','')}customer-order.html?owner=${currentUser.id}`;
+  document.getElementById('qr-shopname').textContent = currentUser.shop_name;
+  document.getElementById('qr-url').textContent = url;
+  const container = document.getElementById('qr-canvas');
+  container.innerHTML = '';
+  qrInstance = new QRCode(container, { text: url, width:200, height:200, colorDark:'#0f172a', colorLight:'#ffffff', correctLevel: QRCode.CorrectLevel.H });
+}
+
+function downloadQR() {
+  const canvas = document.getElementById('qr-canvas').querySelector('canvas');
+  if (!canvas) { showToast('QR not generated yet.', true); return; }
+  const link = document.createElement('a');
+  link.download = `PrintFlow-QR-${currentUser.shop_name}.png`;
+  link.href = canvas.toDataURL();
+  link.click();
+  showToast('QR Code downloaded!');
+}
+
+let activePrintJob = null;
+let activePrintPreviewKind = null;
+let printSided = 'one-sided';
+let connectedPrinter = null;
+
+// ── Printer connection via Web Print API (Chrome) ──────────────────
+async function connectPrinter() {
+  const btn = document.getElementById('connect-printer-btn');
+  const statusEl = document.getElementById('printer-status');
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Connecting to agent...'; btn.disabled = true;
+  try {
+    await fetch('http://127.0.0.1:17321/refresh', {method:'POST'}); const health = await fetch('http://127.0.0.1:17321/health'); const agent = await health.json();
+    if (!health.ok || !agent.connected) throw new Error('Agent is not signed in. Open the Windows PrintFlow Agent and sign in with this cyber owner email.');
+    const response = await fetch('http://127.0.0.1:17321/printers'); const result = await response.json();
+    if (!response.ok || !result.printers || !result.printers.length) throw new Error('No Windows printers found.');
+    connectedPrinter = (result.printers.find(printer => printer.default) || result.printers[0]).name;
+    btn.innerHTML = '<i class="fas fa-check-circle text-green-600 mr-2"></i>Agent Connected';
+    btn.className = 'w-full rounded-xl border border-green-300 bg-green-50 text-green-700 text-sm font-semibold px-3 py-2 transition flex items-center justify-center gap-2';
+    if (statusEl) statusEl.innerHTML = `<span class="text-green-600 font-semibold"><i class="fas fa-circle text-green-500 text-xs mr-1"></i>Agent connected · ${result.printers.length} printer${result.printers.length === 1 ? '' : 's'} found</span>`;
+    renderAgentProfileStatus(true, 'PrintFlow Agent is connected and ready to print.');
+    showToast('Print agent connected.');
+  } catch (error) {
+    btn.innerHTML = '<i class="fas fa-link mr-2"></i>Connect Print Agent';
+    if (statusEl) statusEl.textContent = error.message || 'Agent connection failed.';
+    showToast(error.message || 'Start and sign in to the local PrintFlow Agent.', true);
+  }
+  btn.disabled = false;
+}
+// ── Set print sides (one-sided / two-sided) ────────────────────────
+function setPrintSided(value) {
+  printSided = value;
+  const oneBtn = document.getElementById('sided-one-btn');
+  const twoBtn = document.getElementById('sided-two-btn');
+  const duplexGuide = document.getElementById('duplex-guide');
+  if (oneBtn && twoBtn) {
+    if (value === 'one-sided') {
+      oneBtn.className = 'rounded-xl border-2 border-blue-600 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 transition';
+      twoBtn.className = 'rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-400';
+      if (duplexGuide) duplexGuide.classList.add('hidden');
+    } else {
+      twoBtn.className = 'rounded-xl border-2 border-blue-600 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 transition';
+      oneBtn.className = 'rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-400';
+      if (duplexGuide) duplexGuide.classList.remove('hidden');
+      updateDuplexPagePlan();
+    }
+  }
+  updatePrintInstructions();
+}
+
+// ── Compute duplex page plan (front sides then back sides) ─────────
+function updateDuplexPagePlan() {
+  const planEl = document.getElementById('duplex-page-plan');
+  if (!planEl) return;
+  const content = document.getElementById('print-editable-content').value || '';
+  const totalPages = Math.max(1, Math.ceil((content || '').length / 1700));
+  const selectedPages = parsePageSelection(document.getElementById('print-page-input').value, totalPages);
+  const oddPages = selectedPages.filter(p => p % 2 !== 0);
+  const evenPages = selectedPages.filter(p => p % 2 === 0);
+  if (oddPages.length === 0 && evenPages.length === 0) {
+    planEl.textContent = '';
+    return;
+  }
+  planEl.innerHTML = `<div class="mt-1">Front sides (odd): <span class="text-blue-600">${oddPages.length > 0 ? oddPages.join(', ') : 'none'}</span></div><div>Back sides (even): <span class="text-blue-600">${evenPages.length > 0 ? evenPages.join(', ') : 'none'}</span></div>`;
+}
+
+async function openPrintPreview(orderId, fileName, customer, services, allowEdit, copies = 1) {
+  const modal = document.getElementById('print-preview-modal');
+  const frame = document.getElementById('print-preview-frame');
+  const contentBox = document.getElementById('print-editable-content');
+  const pageInput = document.getElementById('print-page-input');
+  const pageSummary = document.getElementById('print-page-summary');
+  const title = document.getElementById('print-preview-title');
+  const actionNote = document.getElementById('print-action-note');
+  const editorPanel = document.getElementById('print-editor-panel');
+  const allowEditing = String(allowEdit || '').toLowerCase() === 'yes';
+
+  modal.classList.remove('hidden');
+  frame.innerHTML = '<div class="flex h-full items-center justify-center text-sm text-slate-500"><i class="fas fa-spinner fa-spin mr-2"></i>Loading document preview...</div>';
+  contentBox.value = '';
+  pageInput.value = '';
+  pageSummary.textContent = 'Preparing pages';
+  title.textContent = fileName || 'Print job';
+  activePrintJob = { orderId, fileName, customer, services, copies: Math.max(1, Number(copies) || 1), allowEdit: allowEditing, orderCode: orderId };
+
+  // Pre-fill page selection from the order's selected_pages field
+  try {
+    const orderRes = await API.getOrder(orderId);
+    const orderData = orderRes.order;
+    if (orderData) activePrintJob.orderCode = orderData.small_order_id || orderData.order_code || orderId;
+    if (orderData && orderData.selected_pages && orderData.selected_pages !== 'all') {
+      const pageInputEl = document.getElementById('print-page-input');
+      if (pageInputEl && !pageInputEl.value) {
+        pageInputEl.value = orderData.selected_pages;
+        // Also pre-fill the print sides from the order
+        if (orderData.sided === 'two-sided') setPrintSided('two-sided');
+      }
+    }
+    // Pre-fill orientation and paper size from order
+    if (orderData) {
+      const orientEl = document.getElementById('print-orientation');
+      const paperEl = document.getElementById('print-paper-size');
+      if (orientEl && orderData.orientation) orientEl.value = orderData.orientation.replace('-', '').toLowerCase() === 'landscape' ? 'landscape' : 'portrait';
+      if (paperEl && orderData.paper_size) {
+        const ps = orderData.paper_size.toUpperCase();
+        const opt = [...paperEl.options].find(o => o.value.toUpperCase() === ps);
+        if (opt) paperEl.value = opt.value;
+      }
+    }
+  } catch { /* ignore */ }
+
+  if (allowEditing) {
+    actionNote.innerHTML = `<div class="space-y-3"><div class="flex items-center gap-2 mb-1"><span class="inline-flex items-center gap-1.5 bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full"><i class="fas fa-unlock"></i> Edit Allowed</span></div><p class="font-semibold text-slate-700">Edit permission enabled</p><p class="text-sm text-slate-500">The customer allowed edits. Download the file to make changes externally, then use the status buttons to mark the order progress.</p><div class="flex flex-wrap items-center gap-3 mt-2"><a href="${API.orderFileUrl(orderId)}" class="inline-flex items-center gap-2 rounded-xl border border-green-300 bg-green-50 px-3 py-2 text-sm font-semibold text-green-700 transition hover:bg-green-100"><i class="fas fa-download"></i> Download to edit</a></div></div>`;
+    editorPanel.classList.add('hidden');
+  } else {
+    actionNote.innerHTML = `<div class="space-y-3"><div class="flex items-center gap-2 mb-1"><span class="inline-flex items-center gap-1.5 bg-amber-100 text-amber-700 text-xs font-bold px-3 py-1 rounded-full"><i class="fas fa-lock"></i> View Only</span></div><p class="font-semibold text-slate-700">Print-only mode</p><p class="text-sm text-slate-500">The client did not allow editing. You can only view the document and print it as submitted. Downloading is not permitted for this order.</p><div class="mt-2 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700"><i class="fas fa-info-circle mr-1"></i>Print the document exactly as the customer submitted it.</div></div>`;
+    editorPanel.classList.add('hidden');
+  }
+
+  try {
+    const preview = await API.orderPreview(orderId);
+    const ext = (preview.ext || '').toLowerCase();
+    const content = preview.content || '';
+    contentBox.value = content || `PrintFlow print job\nCustomer: ${customer}\nFile: ${fileName}\nServices: ${services}`;
+
+    if (preview.kind === 'image') {
+      frame.innerHTML = `<div class="flex min-h-[320px] items-center justify-center rounded-2xl border border-slate-200 bg-white p-3"><img src="${preview.fileUrl}" alt="Document preview" class="max-h-[420px] w-full rounded-xl object-contain"></div>`;
+    } else if (preview.kind === 'pdf') {
+      frame.innerHTML = `<iframe src="${preview.fileUrl}" title="PDF preview" class="h-[56vh] w-full rounded-2xl border border-slate-200 bg-white"></iframe>`;
+    } else if (preview.kind === 'text') {
+      const escaped = (content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      frame.innerHTML = `<div class="rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-7 text-slate-700 whitespace-pre-wrap shadow-sm"><div class="mb-3 flex items-center justify-between border-b border-slate-100 pb-2"><span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Document content</span><span class="text-xs text-slate-400">Editable</span></div>${escaped || 'No text could be extracted. You can type your own content in the editor panel.'}</div>`;
+    } else {
+      frame.innerHTML = `<div class="flex min-h-[320px] items-center justify-center rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">This file type cannot be previewed directly, but you can still edit and print the content below.</div>`;
+    }
+
+    applySelectedPages();
+  } catch (err) {
+    frame.innerHTML = `<div class="flex min-h-[320px] items-center justify-center rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-red-600">${err.message || 'Preview unavailable.'}</div>`;
+    contentBox.value = `PrintFlow print job\nCustomer: ${customer}\nFile: ${fileName}\nServices: ${services}`;
+    applySelectedPages();
+  }
+}
+
+function closePrintPreview() {
+  document.getElementById('print-preview-modal').classList.add('hidden');
+}
+
+function escapeHtml(text) {
+  return String(text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function parsePageSelection(input, totalPages) {
+  const normalized = (input || '').trim();
+  if (!normalized) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+
+  const selected = new Set();
+  normalized.split(',').forEach(part => {
+    const value = part.trim();
+    if (!value) return;
+    if (value.includes('-')) {
+      const [start, end] = value.split('-').map(v => parseInt(v, 10));
+      if (!Number.isNaN(start) && !Number.isNaN(end)) {
+        const from = Math.min(start, end);
+        const to = Math.max(start, end);
+        for (let i = from; i <= to; i++) selected.add(i);
+      }
+    } else {
+      const page = parseInt(value, 10);
+      if (!Number.isNaN(page)) selected.add(page);
+    }
+  });
+
+  const pages = [...selected].sort((a, b) => a - b).filter(p => p >= 1 && p <= totalPages);
+  return pages.length ? pages : Array.from({ length: totalPages }, (_, i) => i + 1);
+}
+
+function splitContentIntoPages(content, selectedPages) {
+  const source = (content || '').replace(/\r\n/g, '\n').trim();
+  const chunks = source ? source.split(/\n{2,}/) : [''];
+  const pageContent = [];
+  let current = '';
+
+  chunks.forEach(chunk => {
+    const next = current ? `${current}\n\n${chunk}` : chunk;
+    if (next.length > 1700 && current) {
+      pageContent.push(current.trim());
+      current = chunk;
+    } else {
+      current = next;
+    }
+  });
+
+  if (current) pageContent.push(current.trim());
+  if (!pageContent.length) pageContent.push(source || 'No content available.');
+
+  const totalPages = Math.max(1, pageContent.length);
+  const pages = selectedPages.length ? selectedPages : Array.from({ length: totalPages }, (_, i) => i + 1);
+  return pages.map((originalPage, index) => ({
+    originalPage,
+    renumberedPage: index + 1,
+    content: pageContent[originalPage - 1] || pageContent[pageContent.length - 1] || ''
+  }));
+}
+
+function getPrintLayoutSettings() {
+  return {
+    orientation: document.getElementById('print-orientation').value || 'portrait',
+    paperSize: document.getElementById('print-paper-size').value || 'A4',
+    colorMode: document.getElementById('print-color-mode') ? document.getElementById('print-color-mode').value : 'bw',
+    laminate: document.getElementById('print-laminate') ? document.getElementById('print-laminate').checked : false,
+    fontSize: parseInt(document.getElementById('print-font-size').value || '12', 10),
+    marginSize: document.getElementById('print-margin-size').value || 'normal'
+  };
+}
+
+function updatePrintInstructions() {
+  const settings = getPrintLayoutSettings();
+  const colorText = settings.colorMode === 'color' ? 'Color' : 'Black & White';
+  const laminateText = settings.laminate ? 'Print and laminate' : 'Print only';
+  const sidedText = printSided === 'two-sided' ? 'Double-sided (duplex)' : 'One-sided';
+  const summaryEl = document.getElementById('print-instruction-summary');
+  if (summaryEl) {
+    summaryEl.innerHTML = `<div class="space-y-1">
+      <p class="font-semibold text-slate-700 mb-1">Printer instructions:</p>
+      <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+        <span class="text-slate-500">Orientation:</span><span class="font-semibold">${settings.orientation.charAt(0).toUpperCase() + settings.orientation.slice(1)}</span>
+        <span class="text-slate-500">Color mode:</span><span class="font-semibold">${colorText}</span>
+        <span class="text-slate-500">Paper size:</span><span class="font-semibold">${settings.paperSize}</span>
+        <span class="text-slate-500">Laminate:</span><span class="font-semibold">${laminateText}</span>
+        <span class="text-slate-500">Print sides:</span><span class="font-semibold ${printSided === 'two-sided' ? 'text-blue-700' : ''}">${sidedText}</span>
+      </div>
+      ${printSided === 'two-sided' ? '<div class="mt-2 text-xs text-blue-600 bg-blue-50 rounded-lg px-2 py-1"><i class="fas fa-info-circle mr-1"></i>Step 1: Print odd pages → flip stack → Step 2: Print even pages</div>' : ''}
+    </div>`;
+  }
+  if (printSided === 'two-sided') updateDuplexPagePlan();
+}
+
+function renderLivePrintPreview(pages) {
+  const frame = document.getElementById('print-preview-frame');
+  const settings = getPrintLayoutSettings();
+  const marginMap = { narrow: '12px', normal: '20px', wide: '30px' };
+  const contentStyle = `font-size:${settings.fontSize}px; line-height:1.55; white-space:pre-wrap; color:#0f172a;`;
+  const sheetClass = settings.orientation === 'landscape' ? 'landscape' : 'portrait';
+  const printModeLabel = settings.colorMode === 'color' ? 'Color' : 'Black & White';
+  const instructionNote = `<div class="rounded-2xl border border-slate-200 bg-slate-100 p-3 text-xs text-slate-600 mb-4">Printer setup: ${settings.paperSize}, ${settings.orientation}, ${printModeLabel}${settings.laminate ? ', Laminate after print' : ''}</div>`;
+  const previewHtml = pages.map(page => `
+    <div class="print-sheet ${sheetClass}" style="padding:${marginMap[settings.marginSize] || '20px'};">
+      <div class="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        <span>Page ${page.renumberedPage}</span>
+        <span>Original ${page.originalPage}</span>
+      </div>
+      <div style="${contentStyle}">${escapeHtml(page.content || 'No content.')}</div>
+    </div>`).join('');
+
+  frame.innerHTML = `<div class="space-y-3">${instructionNote}${previewHtml}</div>`;
+}
+
+function applySelectedPages() {
+  const content = document.getElementById('print-editable-content').value || '';
+  const totalPages = Math.max(1, Math.ceil((content || '').length / 1700));
+  const selectedPages = parsePageSelection(document.getElementById('print-page-input').value, totalPages);
+  const pages = splitContentIntoPages(content, selectedPages);
+  const preview = document.getElementById('page-selection-preview');
+  preview.innerHTML = pages.map(page => `
+    <div class="rounded-xl border border-slate-200 bg-white p-3">
+      <div class="mb-2 flex items-center justify-between">
+        <span class="text-sm font-semibold text-slate-700">Page ${page.renumberedPage}</span>
+        <span class="text-xs text-slate-500">Original ${page.originalPage}</span>
+      </div>
+      <div class="max-h-24 overflow-hidden text-sm leading-6 text-slate-600 whitespace-pre-wrap">${escapeHtml(page.content).slice(0, 240)}${page.content.length > 240 ? '…' : ''}</div>
+    </div>`).join('');
+  document.getElementById('print-page-summary').textContent = `Selected ${pages.length} page(s)`;
+  updatePrintInstructions();
+  if (activePrintPreviewKind === 'text') {
+    renderLivePrintPreview(pages);
+  }
+}
+
+async function sendToLocalPrintAgent(fileUrl, fileName, copies = 1) {
+  const response = await fetch(fileUrl, { credentials: 'include' });
+  if (!response.ok) throw new Error('Could not load the selected document.');
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, Math.min(index + chunkSize, bytes.length)));
+  }
+  const agentResponse = await fetch('http://127.0.0.1:17321/print', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fileName, copies: Math.max(1, Number(copies) || 1), data: btoa(binary) })
+  });
+  const result = await agentResponse.json().catch(() => ({}));
+  if (!agentResponse.ok) throw new Error(result.error || 'Local print agent failed.');
+  return result;
+}
+
+function openBrowserPrintFallback(url, pageInput, settings) {
+  const printWindow = window.open('', '_blank', 'width=900,height=700');
+  if (!printWindow) {
+    showToast('Please allow pop-ups so the print dialog can open.', true);
+    return;
+  }
+  printWindow.document.write(`<!doctype html><html><head><title>PrintFlow PDF Print</title><style>body{margin:0;}</style></head><body><iframe src="${url}" style="border:none;width:100%;height:100vh;"></iframe></body></html>`);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.onload = () => setTimeout(() => printWindow.print(), 300);
+  showToast(`Browser print opened${pageInput ? ' for pages ' + pageInput : ''}. Use ${settings.paperSize}/${settings.orientation}.`);
+}
+
+function printPreparedPages() {
+  const settings = getPrintLayoutSettings();
+  const colorLabel = settings.colorMode === 'color' ? 'Color' : 'Black & White';
+  const laminateText = settings.laminate ? 'Yes' : 'No';
+  const header = activePrintJob ? `${activePrintJob.fileName || 'PrintFlow'} · ${activePrintJob.customer || 'Walk-in'} · ${activePrintJob.orderCode || activePrintJob.orderId || ''}` : 'PrintFlow';
+  const orderId = activePrintJob ? activePrintJob.orderId : null;
+
+  if (activePrintPreviewKind === 'pdf' && orderId) {
+    const pageInput = (document.getElementById('print-page-input').value || '').trim();
+    const url = API.orderPagesUrl(orderId, pageInput || 'all');
+    sendToLocalPrintAgent(url, `${activePrintJob.orderCode || orderId}-${activePrintJob.fileName || 'document.pdf'}`, activePrintJob.copies)
+      .then(() => showToast('Selected pages sent directly to the system printer.'))
+      .catch(() => openBrowserPrintFallback(url, pageInput, settings));
+    return;
+  }
+
+  if (activePrintPreviewKind === 'image' && orderId) {
+    const url = API.orderFileUrl(orderId);
+    const printWindow = window.open('', '_blank', 'width=900,height=700');
+    if (!printWindow) {
+      showToast('Please allow pop-ups so the print dialog can open.', true);
+      return;
+    }
+    printWindow.document.write(`<!doctype html><html><head><title>PrintFlow Image Print</title><style>body{margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#fff;}img{max-width:100%;max-height:100vh;}</style></head><body><img src="${url}" alt="Print image"></body></html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print();
+      }, 300);
+    };
+    showToast(`Image print opened. Use ${settings.paperSize}/${settings.orientation}/${colorLabel}${settings.laminate ? ' with laminate' : ''}.`);
+    return;
+  }
+
+  const content = document.getElementById('print-editable-content').value || '';
+  const totalPages = Math.max(1, Math.ceil((content || '').length / 1700));
+  const selectedPages = parsePageSelection(document.getElementById('print-page-input').value, totalPages);
+  const pages = splitContentIntoPages(content, selectedPages);
+  const marginMap = { narrow: '0.2in', normal: '0.35in', wide: '0.5in' };
+  const sidedLabel = printSided === 'two-sided' ? 'Double-sided' : 'One-sided';
+
+  function buildPrintHtml(pagesToPrint, passLabel) {
+    return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>PrintFlow Print${passLabel ? ' - ' + passLabel : ''}</title>
+    <style>
+      @page { size: ${settings.paperSize} ${settings.orientation}; margin: ${marginMap[settings.marginSize] || '0.35in'}; }
+      body { font-family: Arial, sans-serif; color: #0f172a; padding: 0; margin: 0; }
+      .print-page { page-break-after: always; margin: 0; padding: 0 0 18px; }
+      .meta { font-size: 12px; color: #64748b; margin-bottom: 10px; }
+      .content { white-space: pre-wrap; line-height: 1.55; font-size: ${settings.fontSize}px; }
+    </style>
+  </head>
+  <body>
+    <h2 style="margin-bottom: 6px;">${escapeHtml(header)}${passLabel ? ' <span style="font-size:13px;color:#64748b;">[' + passLabel + ']</span>' : ''}</h2>
+    <div class="meta">PrintFlow · ${new Date().toLocaleString('en-KE')}</div>
+    <div class="meta">Paper: ${settings.paperSize} · Orientation: ${settings.orientation} · Mode: ${colorLabel} · Laminate: ${laminateText} · Sides: ${sidedLabel}</div>
+    ${pagesToPrint.map(page => `<div class="print-page"><div class="meta">Page ${page.renumberedPage} · Original page ${page.originalPage}</div><div class="content">${escapeHtml(page.content)}</div></div>`).join('')}
+  </body>
+</html>`;
+  }
+
+  if (printSided === 'two-sided') {
+    // Split pages into odd (front) and even (back) for manual duplex
+    const oddPages = pages.filter(p => p.originalPage % 2 !== 0);
+    const evenPages = pages.filter(p => p.originalPage % 2 === 0);
+
+    if (oddPages.length === 0 && evenPages.length === 0) {
+      showToast('No pages to print.', true);
+      return;
+    }
+
+    // Print front sides (odd pages)
+    const frontWindow = window.open('', '_blank', 'width=900,height=700');
+    if (!frontWindow) { showToast('Please allow pop-ups so the print dialog can open.', true); return; }
+    frontWindow.document.write(buildPrintHtml(oddPages.length ? oddPages : pages, 'Front sides - Step 1 of 2'));
+    frontWindow.document.close();
+    setTimeout(() => {
+      frontWindow.focus();
+      frontWindow.print();
+      setTimeout(() => frontWindow.close(), 800);
+    }, 450);
+
+    // Prompt user to flip paper and then print back sides
+    if (evenPages.length > 0) {
+      setTimeout(() => {
+        const proceed = confirm('Step 1 complete!\n\nNow flip the paper stack and reload it into the printer.\n\nClick OK to print the back sides (even pages).');
+        if (!proceed) return;
+        const backWindow = window.open('', '_blank', 'width=900,height=700');
+        if (!backWindow) { showToast('Please allow pop-ups.', true); return; }
+        backWindow.document.write(buildPrintHtml(evenPages, 'Back sides - Step 2 of 2'));
+        backWindow.document.close();
+        setTimeout(() => {
+          backWindow.focus();
+          backWindow.print();
+          setTimeout(() => backWindow.close(), 800);
+        }, 450);
+        showToast('Back sides print dialog opened. Double-sided printing complete!');
+      }, 1200);
+    }
+    showToast('Front sides print dialog opened. Flip paper when done for back sides.');
+    return;
+  }
+
+  const printWindow = window.open('', '_blank', 'width=900,height=700');
+  if (!printWindow) {
+    showToast('Please allow pop-ups so the print dialog can open.', true);
+    return;
+  }
+
+  printWindow.document.write(buildPrintHtml(pages, null));
+  printWindow.document.close();
+  setTimeout(() => {
+    printWindow.focus();
+    printWindow.print();
+    setTimeout(() => printWindow.close(), 800);
+  }, 450);
+  showToast('Print dialog opened. Choose your printer to continue.');
+}
+    </script>
+</body>
+
+</html>

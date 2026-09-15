@@ -1,0 +1,10 @@
+backend/.env
+backend/node_modules/
+backend/uploads/
+backend/db/*.db
+backend/db/*.db-shm
+backend/db/*.db-wal
+backend/db/data/*.json
+backend/.vercel/
+*.log
+.DS_Store

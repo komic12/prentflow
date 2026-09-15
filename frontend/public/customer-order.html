@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PrintFlow – Order Here</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/all.min.css">
+    <style>
+        .step-panel {
+            display: none;
+        }
+        
+        .step-panel.active {
+            display: block;
+        }
+        
+        .service-card {
+            border: 2px solid #e2e8f0;
+            cursor: pointer;
+            transition: all .2s;
+        }
+        
+        .service-card.selected {
+            border-color: #2563eb;
+            background: #eff6ff;
+        }
+        
+        .drag-over {
+            border-color: #2563eb !important;
+            background: #eff6ff !important;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-100 min-h-screen">
+
+    <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-xl">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0"><i class="fas fa-print text-sm"></i></div>
+                <div><span class="font-bold text-base">PrintFlow</span><span id="header-shopname" class="hidden sm:inline text-slate-400 text-sm ml-2"></span></div>
+            </div>
+            <div id="store-status" class="hidden items-center gap-2 text-xs">
+                <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                <span class="text-slate-300 hidden sm:block">Store Active</span>
+            </div>
+        </div>
+    </header>
+
+    <div id="error-state" class="hidden max-w-md mx-auto px-4 py-20 text-center">
+        <div class="bg-white rounded-3xl shadow-xl p-10">
+            <div class="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-5"><i class="fas fa-store-slash text-red-500 text-3xl"></i></div>
+            <h2 class="text-2xl font-bold text-slate-800 mb-2">Store Unavailable</h2>
+            <p id="error-msg" class="text-slate-500"></p>
+        </div>
+    </div>
+
+    <div id="main-content" class="hidden max-w-5xl mx-auto px-4 py-6">
+        <div id="floating-back-btn" class="hidden mb-4">
+            <button onclick="goBack()" class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                <i class="fas fa-arrow-left"></i> Back
+            </button>
+        </div>
+
+        <div class="bg-gradient-to-r from-slate-900 to-blue-900 rounded-2xl p-6 mb-6 text-white flex items-center gap-5">
+            <div class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg"><i class="fas fa-print text-2xl"></i></div>
+            <div>
+                <h1 id="banner-shopname" class="text-2xl font-bold"></h1>
+                <p id="banner-location" class="text-blue-300 text-sm mt-0.5"></p>
+            </div>
+        </div>
+
+        <!-- STEP 1: UPLOAD -->
+        <div id="step-1" class="step-panel active">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 mb-4">
+                <h2 class="text-lg font-bold text-slate-800 mb-1 flex items-center gap-2"><span class="w-7 h-7 bg-blue-600 text-white rounded-lg text-xs flex items-center justify-center font-bold">1</span>Upload Your Document</h2>
+                <p class="text-slate-500 text-sm mb-5">Supported: PDF, JPG, PNG, DOC, XLS, PPT, TXT (max 25MB)</p>
+                <div id="drop-zone" class="border-2 border-dashed border-slate-300 rounded-2xl p-6 sm:p-10 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all">
+                    <div id="upload-idle">
+                        <div class="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4"><i class="fas fa-cloud-arrow-up text-blue-500 text-3xl"></i></div>
+                        <p class="text-slate-700 font-semibold">Drag & drop your file here</p>
+                        <p class="text-slate-400 text-sm mt-1">or click to browse from device</p>
+                        <p class="text-slate-400 text-xs mt-3"><i class="fas fa-camera mr-1"></i>On mobile you can also snap a photo</p>
+                    </div>
+                    <div id="upload-progress" class="hidden">
+                        <div class="w-14 h-14 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+                        <p class="text-blue-600 font-semibold">Reading file...</p>
+                    </div>
+                    <div id="upload-done" class="hidden">
+                        <div class="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-3"><i class="fas fa-file-check text-green-600 text-2xl"></i></div>
+                        <p class="text-green-700 font-bold text-lg" id="done-filename"></p>
+                        <div class="mt-2 inline-flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2">
+                            <i class="fas fa-file-lines text-blue-600"></i>
+                            <span class="text-blue-700 font-bold text-base" id="done-pages"></span>
+                            <span class="text-blue-600 text-sm font-semibold">page(s) detected</span>
+                        </div>
+                        <p class="text-slate-500 text-xs mt-2">You can select specific pages to print in Step 2</p>
+                        <div class="mt-4 text-left">
+                            <label for="document-name-input" class="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Document name</label>
+                            <input id="document-name-input" type="text" placeholder="Edit document name" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm focus:border-blue-500 focus:outline-none" />
+                        </div>
+                    </div>
+                </div>
+                <input type="file" id="file-input" class="hidden" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" capture="environment">
+            </div>
+            <div class="flex justify-end">
+                <button id="step1-next" onclick="goToStep(2)" disabled class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold px-8 py-3 rounded-xl transition flex items-center justify-center gap-2">Continue <i class="fas fa-arrow-right"></i></button>
+            </div>
+        </div>
+
+        <!-- STEP 2: CONFIGURE -->
+        <div id="step-2" class="step-panel">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-4">
+                <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><span class="w-7 h-7 bg-blue-600 text-white rounded-lg text-xs flex items-center justify-center font-bold">2</span>Select Services & Configure</h2>
+                <div class="grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] gap-4 mb-6">
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <h3 class="text-sm font-bold text-slate-800 mb-3">Print setup</h3>
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <button type="button" id="layout-portrait" onclick="setLayout('portrait')" class="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 transition hover:border-blue-400"><i class="fas fa-file-lines mr-2 text-blue-600"></i>Portrait</button>
+                            <button type="button" id="layout-landscape" onclick="setLayout('landscape')" class="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 transition hover:border-blue-400"><i class="fas fa-file mr-2 text-blue-600"></i>Landscape</button>
+                        </div>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Paper size</p>
+                        <div class="grid grid-cols-2 gap-2 mb-4">
+                            <button type="button" id="size-a4" onclick="setPaperSize('A4')" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-400">A4</button>
+                            <button type="button" id="size-a3" onclick="setPaperSize('A3')" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-400">A3</button>
+                            <button type="button" id="size-a5" onclick="setPaperSize('A5')" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-400">A5</button>
+                            <button type="button" id="size-letter" onclick="setPaperSize('Letter')" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-400">Letter</button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 mb-4">
+                            <button type="button" id="sided-one" onclick="setSided('one-sided')" class="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 transition hover:border-blue-400">One-side</button>
+                            <button type="button" id="sided-two" onclick="setSided('two-sided')" class="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 transition hover:border-blue-400">Both-sides</button>
+                        </div>
+                        <div class="rounded-xl border border-slate-200 bg-white p-3">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Example</p>
+                            <div id="print-layout-preview" class="mt-2 flex items-center justify-between rounded-xl bg-slate-50 p-3">
+                                <div>
+                                    <p class="text-sm font-semibold text-slate-700">Portrait · A4</p>
+                                    <p class="text-xs text-slate-500">Ideal for standard documents and letters.</p>
+                                </div>
+                                <div class="flex h-12 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-500">A4</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <h3 class="text-sm font-bold text-slate-800 mb-3">Document preview & pages</h3>
+                        <div id="document-preview-panel" class="hidden rounded-xl border border-slate-200 bg-white p-3">
+                            <div class="mb-2 flex items-center justify-between">
+                                <span id="preview-type-label" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Preview unavailable</span>
+                                <span id="page-count-display" class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">1 page</span>
+                            </div>
+                            <div id="document-preview-container" class="min-h-[220px] rounded-xl border border-slate-200 bg-slate-50 p-2"></div>
+                            <div id="page-number-grid" class="mt-4 hidden"></div>
+                            <p id="page-number-help" class="mt-3 text-xs text-slate-500 hidden">Tap page numbers to send only those pages. The total price will update automatically.</p>
+                        </div>
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            <button type="button" id="page-all-label" onclick="setPageSelectionMode('all')" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-400">All pages</button>
+                            <button type="button" id="page-specific-label" onclick="setPageSelectionMode('specific')" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-blue-400">Selected pages</button>
+                        </div>
+                        <div id="page-range-block" class="mt-3 hidden rounded-xl border border-slate-200 bg-white p-3">
+                            <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Enter the pages you want</label>
+                            <input id="page-range-input" type="text" oninput="updateSelectedPages()" placeholder="e.g. 1-3, 5" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                            <p class="mt-2 text-xs text-slate-500">Only the chosen pages will be submitted for printing.</p>
+                        </div>
+                        <div class="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Selected pages</p>
+                            <p id="selected-pages-display" class="mt-1 text-sm font-semibold text-slate-700">All</p>
+                        </div>
+                        <!-- Page price summary -->
+                        <div id="page-price-summary" class="mt-3 hidden rounded-xl border border-blue-100 bg-blue-50 p-3">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-blue-600 mb-2"><i class="fas fa-calculator mr-1"></i>Page Price Estimate</p>
+                            <div id="page-price-lines" class="space-y-1 text-xs text-slate-700"></div>
+                            <div class="border-t border-blue-200 mt-2 pt-2 flex justify-between font-bold text-slate-800 text-sm">
+                                <span>Total (selected pages)</span>
+                                <span class="text-blue-700" id="page-price-total">KES 0</span>
+                            </div>
+                        </div>
+                        <div class="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Allow owner to edit document?</p>
+                            <div class="grid grid-cols-2 gap-3">
+                                <button type="button" id="edit-yes" onclick="setAllowEdit(true)" class="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 transition hover:border-blue-400">Yes, allow edit</button>
+                                <button type="button" id="edit-no" onclick="setAllowEdit(false)" class="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-700 transition hover:border-blue-400">No, print as-is</button>
+                            </div>
+                            <p class="mt-2 text-xs text-slate-500">If editing is allowed, the owner can download the uploaded file and make changes locally before printing.</p>
+                        </div>
+                    </div>
+                </div>
+                <div id="services-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6"></div>
+                <div class="mb-4 rounded-xl border-2 border-blue-200 bg-blue-50 p-4">
+                    <label for="order-copies" class="block text-sm font-bold text-slate-800">Number of copies for this order</label>
+                    <p class="mt-1 text-xs text-slate-600">The total for one copy will be multiplied by this number.</p>
+                    <input id="order-copies" type="number" min="1" value="1" oninput="updateOrderCopies(this.value)" class="mt-3 w-full rounded-xl border border-blue-300 bg-white px-4 py-3 text-center text-lg font-bold text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div id="service-configs" class="space-y-3">
+                    <p id="no-svc-msg" class="text-sm text-slate-400 italic">← Select at least one service above</p>
+                </div>
+            </div>
+            <div class="bg-blue-50 border border-blue-200 rounded-2xl p-4 sm:p-5 mb-4">
+                <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2"><i class="fas fa-receipt text-blue-600"></i> Order Summary</h3>
+                <div id="summary-lines" class="space-y-2 text-sm text-slate-600 mb-3">
+                    <p class="text-slate-400 italic">No services selected</p>
+                </div>
+                <div class="border-t border-blue-200 pt-3 flex justify-between font-bold text-slate-800"><span>Total Amount</span><span class="text-blue-600 text-lg" id="grand-total">KES 0</span></div>
+            </div>
+            <div class="flex justify-end">
+                <button id="step2-next" onclick="goToStep(3)" disabled class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold px-8 py-3 rounded-xl transition flex items-center justify-center gap-2">Next: Details <i class="fas fa-arrow-right"></i></button>
+            </div>
+        </div>
+
+        <!-- STEP 3: DETAILS -->
+        <div id="step-3" class="step-panel">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-4">
+                <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><span class="w-7 h-7 bg-blue-600 text-white rounded-lg text-xs flex items-center justify-center font-bold">3</span>Your Contact Details</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Your Name (optional)</label>
+                        <div class="relative"><i class="fas fa-user absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                            <input type="text" id="customer-name" placeholder="e.g. John Doe" class="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Phone Number <span class="text-red-500">*</span></label>
+                        <div class="relative"><span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-semibold">+254</span>
+                            <input type="tel" id="customer-phone" placeholder="7XX XXX XXX" class="w-full pl-14 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                        </div>
+                        <p class="text-xs text-slate-400 mt-1">Used for M-Pesa payment & order updates</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Email Address <span class="text-red-500">*</span></label>
+                        <div class="relative"><i class="fas fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                            <input type="email" id="customer-email" placeholder="you@example.com" class="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                        </div>
+                        <p class="text-xs text-slate-400 mt-1">We’ll send your order updates here.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end mt-4">
+                <button onclick="goToStep(4)" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 rounded-xl transition flex items-center justify-center gap-2">Continue <i class="fas fa-arrow-right"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- STEP 4: PAYMENT -->
+    <div id="step-4" class="step-panel">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-4">
+            <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><span class="w-7 h-7 bg-blue-600 text-white rounded-lg text-xs flex items-center justify-center font-bold">4</span>Choose Payment Method</h2>
+            <div class="bg-slate-50 rounded-xl p-4 mb-5 border border-slate-200">
+                <p class="text-xs text-slate-500 font-semibold uppercase tracking-wide mb-2">Order Review</p>
+                <div id="final-summary" class="space-y-1 text-sm text-slate-600 mb-3"></div>
+                <div class="flex justify-between font-bold text-slate-800 pt-2 border-t border-slate-200"><span>Total to Pay</span><span class="text-blue-600 text-xl" id="final-total">KES 0</span></div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label id="pay-mpesa-label" class="flex items-center gap-4 p-5 border-2 border-blue-600 bg-blue-50 rounded-2xl cursor-pointer transition">
+          <input type="radio" name="pay" value="mpesa" class="sr-only" checked onchange="selectPay('mpesa')">
+          <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0"><i class="fas fa-mobile-screen-button text-green-600 text-xl"></i></div>
+          <div><p class="font-bold text-slate-800">M-Pesa STK Push</p><p class="text-xs text-slate-500 mt-0.5">Pay directly from phone</p></div>
+        </label>
+                <label id="pay-cash-label" class="flex items-center gap-4 p-5 border-2 border-slate-200 rounded-2xl cursor-pointer hover:border-blue-400 transition">
+          <input type="radio" name="pay" value="cash" class="sr-only" onchange="selectPay('cash')">
+          <div class="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center flex-shrink-0"><i class="fas fa-money-bill-wave text-yellow-600 text-xl"></i></div>
+          <div><p class="font-bold text-slate-800">Cash on Pickup</p><p class="text-xs text-slate-500 mt-0.5">Pay at the counter</p></div>
+        </label>
+            </div>
+        </div>
+        <div class="flex justify-end">
+            <button id="place-order-btn" onclick="placeOrder()" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold px-10 py-3 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-blue-200"><i class="fas fa-paper-plane"></i> Pay Now</button>
+        </div>
+    </div>
+
+    <!-- STEP 5: CONFIRMATION -->
+    <div id="step-5" class="step-panel">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sm:p-8 text-center mb-4">
+            <div id="processing-state">
+                <div class="w-20 h-20 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-5"></div>
+                <h2 class="text-xl font-bold text-slate-800 mb-2">Processing Your Order...</h2>
+                <p class="text-slate-500 text-sm">Please wait a moment.</p>
+            </div>
+            <div id="mpesa-wait-state" class="hidden">
+                <div class="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-5"><i class="fas fa-mobile-screen-button text-green-600 text-4xl animate-pulse"></i></div>
+                <h2 class="text-xl font-bold text-slate-800 mb-2">Check Your Phone</h2>
+                <p class="text-slate-500 text-sm">Enter your M-Pesa PIN to complete payment of <span id="mpesa-wait-amount" class="font-bold text-slate-700"></span>.</p>
+                <p id="mpesa-payment-error" class="hidden text-red-600 text-sm font-semibold mt-3"></p>
+                <div id="payment-retry-actions" class="hidden mt-5 space-y-3">
+                    <input id="retry-phone" type="tel" inputmode="tel" placeholder="WhatsApp/M-Pesa number e.g. 0712345678" class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm">
+                    <button onclick="retryPayment()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold px-5 py-3 rounded-xl"><i class="fas fa-rotate-right"></i> Try Payment Again</button>
+                    <button onclick="chooseCashAfterFailure()" class="w-full border-2 border-amber-300 text-amber-700 font-bold px-5 py-3 rounded-xl"><i class="fas fa-money-bill-wave"></i> Pay Cash at the Counter</button>
+                </div>
+            </div>
+            <div id="success-state" class="hidden">
+                <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5"><i class="fas fa-circle-check text-green-600 text-4xl"></i></div>
+                <h2 class="text-2xl font-bold text-slate-800 mb-4">Order Placed!</h2>
+                <div class="bg-slate-50 rounded-2xl p-6 border border-slate-200 mb-5">
+                    <p class="text-xs text-slate-500 uppercase tracking-widest mb-2">Your Pickup Code</p>
+                    <div class="text-6xl font-black text-blue-600 tracking-widest mb-2 font-mono" id="confirm-small-id">—</div>
+                    <p class="text-sm text-slate-500 mb-1">Order Ref: <span class="font-mono font-bold text-slate-700" id="confirm-order-code">—</span></p>
+                    <p id="confirm-payment-note" class="text-xs mb-4"></p>
+                    <a id="view-receipt-btn" href="#" class="inline-flex items-center gap-2 bg-blue-600 text-white font-bold px-8 py-3 rounded-xl hover:bg-blue-700 transition"><i class="fas fa-receipt"></i> View Full Receipt</a>
+                </div>
+                <p class="text-slate-400 text-xs">Show this code at the counter to collect your printout.</p>
+            </div>
+        </div>
+    </div>
+
+    </div>
+
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transition-opacity" style="opacity:0;pointer-events:none"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.105/pdf.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.105/pdf.worker.min.js';
+        }
+        let owner = null;
+        let uploadedFile = {
+            name: '',
+            documentName: '',
+            pages: 1,
+            blob: null
+        };
+        let selectedServices = {};
+        let orderCopies = 1;
+        let selectedPayment = 'mpesa';
+        let uploadPreviewUrl = null;
+        let uploadPreviewKind = 'none';
+        let uploadPreviewData = null;
+        let currentStep = 1;
+        let currentOrderId = null;
+        let layout = 'portrait';
+        let paperSize = 'A4';
+        let sided = 'one-sided';
+        let allowEdit = false;
+        let pageSelectionMode = 'all';
+        let selectedPageRanges = [];
+        let selectedPreviewPages = [];
+
+        window.addEventListener('load', async() => {
+            const params = new URLSearchParams(window.location.search);
+            const ownerId = params.get('owner') || params.get('id');
+            if (!ownerId) return showError('Invalid store link. Please scan the correct QR code.');
+
+            try {
+                const {
+                    owner: o
+                } = await API.getOwner(ownerId);
+                owner = o;
+            } catch {
+                return showError('Store not found.');
+            }
+            if (owner.status !== 'Active') return showError(`This store is currently ${owner.status}. Please try again later.`);
+
+            const main = document.getElementById('main-content');
+            const storeStatus = document.getElementById('store-status');
+            const headerShopname = document.getElementById('header-shopname');
+            const bannerShopname = document.getElementById('banner-shopname');
+            const bannerLocation = document.getElementById('banner-location');
+            if (main) main.classList.remove('hidden');
+            if (storeStatus) {
+                storeStatus.classList.remove('hidden');
+                storeStatus.classList.add('flex');
+            }
+            // No inline document preview required.
+            if (headerShopname) headerShopname.textContent = '— ' + owner.shop_name;
+            if (bannerShopname) bannerShopname.textContent = owner.shop_name;
+            if (bannerLocation) bannerLocation.innerHTML = (owner.location ? `<i class="fas fa-location-dot mr-1"></i>${owner.location} &nbsp;•&nbsp; ` : '') + '<i class="fas fa-circle-check text-green-400 mr-1"></i>Accepting Orders';
+
+            try {
+                await buildServiceGrid();
+            } catch {
+                const grid = document.getElementById('services-grid');
+                if (grid) grid.innerHTML = '<p class="col-span-3 text-slate-500 text-sm italic">Services could not be loaded right now.</p>';
+            }
+            updateOptionButtons();
+            renderStepDots(1);
+        });
+
+        function showError(msg) {
+            const errState = document.getElementById('error-state');
+            const errMsg = document.getElementById('error-msg');
+            const main = document.getElementById('main-content');
+            if (main) main.classList.add('hidden');
+            if (errState) errState.classList.remove('hidden');
+            if (errMsg) errMsg.textContent = msg;
+        }
+
+        const stepLabels = ['Upload File', 'Configure', 'Details', 'Payment', 'Confirm'];
+
+        function renderStepDots(current) {
+            const el = document.getElementById('step-dots');
+            if (el) {
+                el.innerHTML = '';
+            }
+        }
+
+        function goBack() {
+            if (currentStep > 1) {
+                goToStep(currentStep - 1);
+            }
+        }
+
+        function goToStep(n) {
+            currentStep = n;
+            const backBtn = document.getElementById('floating-back-btn');
+            if (backBtn) backBtn.classList.toggle('hidden', n <= 1);
+            if (n === 4) {
+                const phone = document.getElementById('customer-phone').value.trim();
+                const email = document.getElementById('customer-email').value.trim();
+                if (!phone || phone.replace(/\D/g, '').length < 9) {
+                    showToast('Please enter a valid phone number.', true);
+                    return;
+                }
+                if (!email || !email.includes('@')) {
+                    showToast('Please enter a valid email address.', true);
+                    return;
+                }
+                if (pageSelectionMode === 'specific') {
+                    updateSelectedPages();
+                    if (!selectedPageRanges.length) {
+                        showToast('Please enter the pages you want to print.', true);
+                        return;
+                    }
+                }
+                syncFinalSummary();
+            }
+            document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById('step-' + n).classList.add('active');
+            renderStepDots(n);
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        if (dropZone && fileInput) {
+            dropZone.addEventListener('click', () => fileInput.click());
+            ['dragenter', 'dragover'].forEach(e => dropZone.addEventListener(e, ev => {
+                ev.preventDefault();
+                dropZone.classList.add('drag-over');
+            }));
+            ['dragleave', 'drop'].forEach(e => dropZone.addEventListener(e, ev => {
+                ev.preventDefault();
+                dropZone.classList.remove('drag-over');
+            }));
+            dropZone.addEventListener('drop', ev => {
+                const f = ev.dataTransfer.files[0];
+                if (f) handleFile(f);
+            });
+            fileInput.addEventListener('change', () => {
+                if (fileInput.files[0]) handleFile(fileInput.files[0]);
+            });
+        }
+
+        async function detectPdfPages(file) {
+            if (!file || !file.name.toLowerCase().endsWith('.pdf') || typeof pdfjsLib === 'undefined') return null;
+            try {
+                const buffer = await file.arrayBuffer();
+                const loadingTask = pdfjsLib.getDocument({
+                    data: buffer
+                });
+                const pdfDoc = await loadingTask.promise;
+                return pdfDoc.numPages || null;
+            } catch (err) {
+                console.warn('PDF page detection failed:', err);
+                return null;
+            }
+        }
+
+        async function handleFile(file) {
+            if (file.size > 25 * 1024 * 1024) {
+                showToast('File too large. Max 25MB.', true);
+                return;
+            }
+            document.getElementById('upload-idle').classList.add('hidden');
+            document.getElementById('upload-progress').classList.remove('hidden');
+
+            uploadedFile.name = file.name;
+            uploadedFile.blob = file; // kept in memory, uploaded to server on order placement
+            uploadedFile.pages = 1;
+
+            if (file.name.toLowerCase().endsWith('.pdf')) {
+                const detected = await detectPdfPages(file);
+                if (detected && detected > 0) {
+                    uploadedFile.pages = detected;
+                }
+            }
+
+            if (uploadPreviewUrl) cleanupPreviewUrl();
+            try {
+                const preview = await API.previewUpload(file);
+                uploadedFile.pages = preview.pages || uploadedFile.pages || 1;
+                uploadPreviewKind = preview.kind;
+                uploadPreviewUrl = preview.viewUrl || preview.fileUrl || preview.content || null;
+                uploadPreviewData = preview.content || null;
+                showUploadDone(file.name, uploadedFile.pages);
+            } catch (err) {
+                uploadedFile.pages = uploadedFile.pages || 1;
+                uploadPreviewKind = 'none';
+                uploadPreviewUrl = null;
+                uploadPreviewData = null;
+                showUploadDone(file.name, uploadedFile.pages);
+            }
+        }
+
+        function showUploadDone(name, pages) {
+            const uploadProgressEl = document.getElementById('upload-progress');
+            const uploadDoneEl = document.getElementById('upload-done');
+            const uploadIdleEl = document.getElementById('upload-idle');
+            if (uploadProgressEl) uploadProgressEl.classList.add('hidden');
+            if (uploadDoneEl) uploadDoneEl.classList.remove('hidden');
+            if (uploadIdleEl) uploadIdleEl.classList.add('hidden');
+            const doneFilenameEl = document.getElementById('done-filename');
+            const donePagesEl = document.getElementById('done-pages');
+            const documentNameInput = document.getElementById('document-name-input');
+            if (doneFilenameEl) doneFilenameEl.textContent = name;
+            if (donePagesEl) donePagesEl.textContent = pages;
+            if (documentNameInput) {
+                documentNameInput.value = uploadedFile.documentName || name;
+                documentNameInput.oninput = () => {
+                    uploadedFile.documentName = documentNameInput.value.trim() || name;
+                };
+            }
+            const pageCountEl = document.getElementById('page-count-display');
+            const selectedPagesEl = document.getElementById('selected-pages-display');
+            const pageRangeEl = document.getElementById('page-range-block');
+            const previewPanelEl = document.getElementById('document-preview-panel');
+            if (pageCountEl) pageCountEl.textContent = pages;
+            if (selectedPagesEl) selectedPagesEl.textContent = 'All';
+            if (pageRangeEl) pageRangeEl.classList.add('hidden');
+            if (previewPanelEl) previewPanelEl.classList.remove('hidden');
+            pageSelectionMode = 'all';
+            selectedPageRanges = [];
+            selectedPreviewPages = [];
+            syncServicePageCountsToSelectedPages();
+            updateOptionButtons();
+            updateDocumentPreview();
+            const nextBtn = document.getElementById('step1-next');
+            if (nextBtn) {
+                nextBtn.disabled = false;
+                nextBtn.classList.remove('disabled:bg-slate-300', 'cursor-not-allowed');
+                nextBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            }
+            Object.keys(selectedServices).forEach(id => {
+                selectedServices[id].pages = pages;
+            });
+            updatePagePriceSummary();
+        }
+
+        function resetUpload() {
+            cleanupPreviewUrl();
+            uploadedFile = {
+                name: '',
+                pages: 1,
+                blob: null
+            };
+            const uploadIdleEl = document.getElementById('upload-idle');
+            const uploadProgressEl = document.getElementById('upload-progress');
+            const uploadDoneEl = document.getElementById('upload-done');
+            if (uploadIdleEl) uploadIdleEl.classList.remove('hidden');
+            if (uploadProgressEl) uploadProgressEl.classList.add('hidden');
+            if (uploadDoneEl) uploadDoneEl.classList.add('hidden');
+            const previewPanelEl = document.getElementById('document-preview-panel');
+            if (previewPanelEl) previewPanelEl.classList.add('hidden');
+            const nextBtn = document.getElementById('step1-next');
+            if (nextBtn) {
+                nextBtn.disabled = true;
+                nextBtn.classList.add('disabled:bg-slate-300', 'cursor-not-allowed');
+                nextBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            }
+            if (fileInput) fileInput.value = '';
+        }
+
+        function skipUpload() {
+            uploadedFile = {
+                name: 'Brought in person / USB',
+                pages: 1,
+                blob: null
+            };
+            uploadPreviewKind = 'none';
+            uploadPreviewUrl && URL.revokeObjectURL(uploadPreviewUrl);
+            uploadPreviewUrl = null;
+            const pageCountEl = document.getElementById('page-count-display');
+            const selectedPagesEl = document.getElementById('selected-pages-display');
+            const pageRangeEl = document.getElementById('page-range-block');
+            const previewPanelEl = document.getElementById('document-preview-panel');
+            if (pageCountEl) pageCountEl.textContent = 1;
+            if (selectedPagesEl) selectedPagesEl.textContent = 'All';
+            if (pageRangeEl) pageRangeEl.classList.add('hidden');
+            if (previewPanelEl) previewPanelEl.classList.add('hidden');
+            const nextBtn = document.getElementById('step1-next');
+            if (nextBtn) nextBtn.disabled = false;
+            showToast('Okay — bring your file to the counter when you collect your order.');
+        }
+
+        function setLayout(value) {
+            layout = value;
+            updateOptionButtons();
+        }
+
+        function setPaperSize(value) {
+            paperSize = value;
+            updateOptionButtons();
+        }
+
+        function setSided(value) {
+            sided = value;
+            updateOptionButtons();
+        }
+
+        function setAllowEdit(value) {
+            allowEdit = value;
+            updateOptionButtons();
+        }
+
+        function setPageSelectionMode(value) {
+            pageSelectionMode = value;
+            selectedPageRanges = [];
+            selectedPreviewPages = [];
+            const pageRangeInputEl = document.getElementById('page-range-input');
+            const pageRangeBlockEl = document.getElementById('page-range-block');
+            if (pageRangeInputEl) pageRangeInputEl.value = '';
+            if (pageRangeBlockEl) pageRangeBlockEl.classList.toggle('hidden', value !== 'specific');
+            renderPageSelectionSummary();
+            syncServicePageCountsToSelectedPages();
+            updateDocumentPreview();
+        }
+
+        function updateSelectedPages() {
+            const raw = document.getElementById('page-range-input').value.trim();
+            selectedPreviewPages = [];
+            selectedPageRanges = [];
+            if (raw) {
+                raw.split(',').forEach(part => {
+                    const range = part.split('-').map(x => parseInt(x.trim(), 10));
+                    if (range.length === 2 && !isNaN(range[0]) && !isNaN(range[1])) {
+                        const start = Math.min(range[0], range[1]);
+                        const end = Math.max(range[0], range[1]);
+                        selectedPageRanges.push([start, end]);
+                        for (let i = start; i <= end; i += 1) selectedPreviewPages.push(i);
+                    } else if (!isNaN(range[0])) {
+                        selectedPageRanges.push([range[0], range[0]]);
+                        selectedPreviewPages.push(range[0]);
+                    }
+                });
+            }
+            renderPageSelectionSummary();
+            syncServicePageCountsToSelectedPages();
+            updateDocumentPreview();
+        }
+
+        function togglePreviewPage(pageNumber) {
+            if (pageSelectionMode !== 'specific') {
+                pageSelectionMode = 'specific';
+                const pageRangeBlockEl = document.getElementById('page-range-block');
+                if (pageRangeBlockEl) pageRangeBlockEl.classList.remove('hidden');
+            }
+            const exists = selectedPreviewPages.includes(pageNumber);
+            selectedPreviewPages = exists ?
+                selectedPreviewPages.filter(page => page !== pageNumber) : [...selectedPreviewPages, pageNumber].sort((a, b) => a - b);
+            selectedPageRanges = [];
+            const previewPages = [...selectedPreviewPages].sort((a, b) => a - b);
+            let start = previewPages[0];
+            let prev = previewPages[0];
+            previewPages.slice(1).forEach(page => {
+                if (page === prev + 1) {
+                    prev = page;
+                    return;
+                }
+                selectedPageRanges.push([start, prev]);
+                start = prev = page;
+            });
+            if (previewPages.length) selectedPageRanges.push([start, prev]);
+            const pageRangeInputEl = document.getElementById('page-range-input');
+            if (pageRangeInputEl) pageRangeInputEl.value = previewPages.length ? previewPages.join(', ') : '';
+            renderPageSelectionSummary();
+            syncServicePageCountsToSelectedPages();
+            updateDocumentPreview();
+        }
+
+        function renderPageSelectionSummary() {
+            const total = uploadedFile.pages || 1;
+            const selectedPagesEl = document.getElementById('selected-pages-display');
+            if (pageSelectionMode === 'all') {
+                if (selectedPagesEl) selectedPagesEl.textContent = 'All';
+                return;
+            }
+
+            const pages = [...new Set(
+                (selectedPreviewPages.length ? selectedPreviewPages : []).concat(
+                    selectedPageRanges.flatMap(([start, end]) => {
+                        const range = [];
+                        for (let i = Math.max(1, start); i <= Math.min(total, end); i += 1) range.push(i);
+                        return range;
+                    })
+                )
+            )].sort((a, b) => a - b);
+
+            if (selectedPagesEl) selectedPagesEl.textContent = pages.length ? pages.join(', ') : 'None';
+            if (selectedPagesEl) selectedPagesEl.title = `Selected ${pages.length} of ${total} page(s).`;
+        }
+
+        function updateOptionButtons() {
+            const preview = document.getElementById('print-layout-preview');
+            if (preview) {
+                preview.innerHTML = `<div><p class="text-sm font-semibold text-slate-700">${layout === 'landscape' ? 'Landscape' : 'Portrait'} · ${paperSize}</p><p class="text-xs text-slate-500">${layout === 'landscape' ? 'Great for wide tables, charts, and brochures.' : 'Ideal for standard documents and letters.'}</p></div><div class="flex h-12 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-500">${paperSize}</div>`;
+            }
+            ['portrait', 'landscape'].forEach(val => {
+                const btn = document.getElementById('layout-' + val);
+                if (btn) {
+                    btn.classList.toggle('border-blue-600', layout === val);
+                    btn.classList.toggle('bg-blue-50', layout === val);
+                    btn.classList.toggle('border-slate-200', layout !== val);
+                }
+            });
+            ['one', 'two'].forEach(key => {
+                const id = key === 'one' ? 'sided-one' : 'sided-two';
+                const btn = document.getElementById(id);
+                const value = key === 'one' ? 'one-sided' : 'two-sided';
+                if (btn) {
+                    btn.classList.toggle('border-blue-600', sided === value);
+                    btn.classList.toggle('bg-blue-50', sided === value);
+                    btn.classList.toggle('border-slate-200', sided !== value);
+                }
+            });
+            ['yes', 'no'].forEach(key => {
+                const id = key === 'yes' ? 'edit-yes' : 'edit-no';
+                const btn = document.getElementById(id);
+                const value = key === 'yes';
+                if (btn) {
+                    btn.classList.toggle('border-blue-600', allowEdit === value);
+                    btn.classList.toggle('bg-blue-50', allowEdit === value);
+                    btn.classList.toggle('border-slate-200', allowEdit !== value);
+                }
+            });
+            ['A4', 'A3', 'A5', 'Letter'].forEach(size => {
+                const btn = document.getElementById('size-' + size.toLowerCase());
+                if (btn) {
+                    btn.classList.toggle('border-blue-600', paperSize === size);
+                    btn.classList.toggle('bg-blue-50', paperSize === size);
+                    btn.classList.toggle('border-slate-200', paperSize !== size);
+                }
+            });
+            ['all', 'specific'].forEach(key => {
+                const id = key === 'all' ? 'page-all-label' : 'page-specific-label';
+                const btn = document.getElementById(id);
+                if (btn) {
+                    btn.classList.toggle('border-blue-600', pageSelectionMode === key);
+                    btn.classList.toggle('bg-blue-50', pageSelectionMode === key);
+                    btn.classList.toggle('border-slate-200', pageSelectionMode !== key);
+                }
+                const input = document.querySelector(`input[name="page-mode"][value="${key}"]`);
+                if (input) input.checked = pageSelectionMode === key;
+            });
+        }
+
+        async function renderPdfPagePreviews(container) {
+            if (uploadPreviewKind !== 'pdf' || !uploadedFile.blob || typeof pdfjsLib === 'undefined') return false;
+            const pdf = await pdfjsLib.getDocument({ data: await uploadedFile.blob.arrayBuffer() }).promise;
+            container.innerHTML = '<div class="space-y-3"></div>';
+            const list = container.firstElementChild;
+            for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+                const page = await pdf.getPage(pageNumber);
+                const viewport = page.getViewport({ scale: 0.7 });
+                const canvas = document.createElement('canvas');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                canvas.className = 'w-full max-w-[420px] rounded-lg border border-slate-200 bg-white shadow-sm';
+                await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+                const textContent = await page.getTextContent();
+                const text = textContent.items.map(item => item.str).join(' ').trim();
+                const card = document.createElement('div');
+                card.className = 'rounded-xl border border-slate-200 bg-white p-3';
+                card.innerHTML = `<p class="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Page ${pageNumber}</p>`;
+                card.appendChild(canvas);
+                const excerpt = document.createElement('p');
+                excerpt.className = 'mt-2 max-h-20 overflow-hidden whitespace-pre-wrap text-xs leading-5 text-slate-600';
+                excerpt.textContent = text || 'No selectable text found on this page.';
+                card.appendChild(excerpt);
+                list.appendChild(card);
+            }
+            return true;
+        }
+
+        async function updateDocumentPreview() {
+            const container = document.getElementById('document-preview-container');
+            const typeLabel = document.getElementById('preview-type-label');
+            const pageGrid = document.getElementById('page-number-grid');
+            const pageHelp = document.getElementById('page-number-help');
+            if (!container || !typeLabel || !pageGrid || !pageHelp) return;
+            if (uploadPreviewKind === 'none' || !uploadPreviewUrl) {
+                container.innerHTML = '<div class="text-slate-500 text-sm">No preview available for this file type.</div>';
+                typeLabel.textContent = 'Preview unavailable';
+                pageGrid.classList.add('hidden');
+                pageHelp.classList.add('hidden');
+                return;
+            }
+            const pageCount = Math.max(uploadedFile.pages || 1, 1);
+            const fileKindLabel = uploadPreviewKind === 'pdf' ? 'PDF file' : uploadPreviewKind === 'image' ? 'Image file' : uploadPreviewKind === 'text' ? 'Text file' : 'Document file';
+            const description = uploadPreviewKind === 'pdf' ?
+                'Choose the pages to send to the owner below. The price updates automatically.' :
+                uploadPreviewKind === 'image' ?
+                'Images are treated as single-page prints. You can still choose to send the image or not.' :
+                uploadPreviewKind === 'text' ?
+                'Text files are printed using the chosen page ranges.' :
+                'The selected pages will be sent to the owner for printing.';
+            container.innerHTML = `<div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                    <p class="font-semibold text-slate-800">${fileKindLabel} detected</p>
+                    <p class="mt-2">Document pages: ${pageCount}</p>
+                    <p class="mt-2 text-xs text-slate-500">${description}</p>
+                </div>`;
+            typeLabel.textContent = fileKindLabel;
+
+            if (uploadPreviewKind === 'pdf') {
+                try {
+                    await renderPdfPagePreviews(container);
+                } catch (err) {
+                    console.warn('Could not render PDF page previews:', err);
+                }
+            } else if (uploadPreviewKind === 'text' && uploadPreviewData) {
+                container.innerHTML += `<pre class="mt-3 max-h-64 overflow-auto whitespace-pre-wrap rounded-xl border border-slate-200 bg-white p-3 text-xs leading-5 text-slate-700"></pre>`;
+                container.querySelector('pre').textContent = uploadPreviewData;
+            }
+
+            const selectedPages = pageSelectionMode === 'all' ?
+                Array.from({
+                    length: pageCount
+                }, (_, i) => i + 1) : [...new Set((selectedPreviewPages.length ? selectedPreviewPages : []).concat(selectedPageRanges.flatMap(([start, end]) => {
+                    const range = [];
+                    for (let i = Math.max(1, start); i <= Math.min(pageCount, end); i += 1) range.push(i);
+                    return range;
+                })))]
+                .sort((a, b) => a - b);
+
+            pageGrid.innerHTML = Array.from({
+                length: pageCount
+            }, (_, index) => {
+                const page = index + 1;
+                const isSelected = pageSelectionMode === 'all' || selectedPages.includes(page);
+                const activeClass = isSelected ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-200';
+                return `<button type="button" onclick="togglePreviewPage(${page})" class="rounded-xl border px-3 py-2 text-xs font-semibold transition ${activeClass}">${page}</button>`;
+            }).join('');
+            pageGrid.classList.remove('hidden');
+            pageHelp.classList.remove('hidden');
+        }
+
+        function cleanupPreviewUrl() {
+            if (uploadPreviewUrl && uploadPreviewUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(uploadPreviewUrl);
+            }
+            uploadPreviewUrl = null;
+            uploadPreviewKind = 'none';
+            uploadPreviewData = null;
+        }
+
+        async function buildServiceGrid() {
+            const grid = document.getElementById('services-grid');
+            if (!grid) return;
+            const {
+                services = []
+            } = await API.servicesByOwner(owner.id);
+            if (services.length === 0) {
+                grid.innerHTML = '<p class="col-span-3 text-slate-500 text-sm italic">No services available for this store.</p>';
+                return;
+            }
+            const iconMap = {
+                color: 'palette',
+                bind: 'book',
+                lam: 'layer-group',
+                visit: 'id-card',
+                photo: 'image',
+                spiral: 'book-open'
+            };
+            grid.innerHTML = services.map(svc => {
+                const key = Object.keys(iconMap).find(k => svc.name.toLowerCase().includes(k));
+                const icon = key ? iconMap[key] : 'print';
+                const safeId = String(svc.id).replace(/'/g, "\\'");
+                const safeName = String(svc.name).replace(/'/g, "\\'");
+                return `<div class="service-card rounded-xl p-4 select-none" data-id="${safeId}" data-name="${safeName}" data-price="${svc.price_per_page}">
+      <div class="flex items-center gap-2 mb-2">
+        <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0"><i class="fas fa-${icon} text-blue-600 text-sm"></i></div>
+        <div id="chk-${safeId}" class="ml-auto w-4 h-4 border-2 rounded border-slate-300 flex-shrink-0"></div>
+      </div>
+      <p class="text-xs font-bold text-slate-700">${svc.name}</p>
+      <p class="text-xs text-blue-600 font-semibold mt-0.5">KES ${svc.price_per_page}/page</p>
+    </div>`;
+            }).join('');
+
+            document.querySelectorAll('.service-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    toggleService(card.getAttribute('data-id'), card.getAttribute('data-name'), Number(card.getAttribute('data-price')));
+                });
+            });
+        }
+
+        function toggleService(id, name, price) {
+            const card = document.querySelector(`[data-id="${id}"]`);
+            const chk = document.getElementById('chk-' + id);
+            if (selectedServices[id]) {
+                delete selectedServices[id];
+                card.classList.remove('selected');
+                chk.innerHTML = '';
+                chk.classList.remove('bg-blue-600', 'border-blue-600');
+            } else {
+                const pageCount = getSelectedPageCount();
+                selectedServices[id] = {
+                    id,
+                    name,
+                    price,
+                    pages: pageCount,
+                    copies: orderCopies,
+                    color: 'B/W'
+                };
+                card.classList.add('selected');
+                chk.innerHTML = '<i class="fas fa-check text-white text-xs m-auto flex" style="height:100%;align-items:center;justify-content:center"></i>';
+                chk.classList.add('bg-blue-600', 'border-blue-600');
+            }
+            renderServiceConfigs();
+            updateSummary();
+            updatePagePriceSummary();
+        }
+
+        function serviceTotal(service, pages = service.pages) {
+            const basePageTotal = Number(pages) * Number(service.price);
+            return basePageTotal * Number(service.copies);
+        }
+
+        function updateOrderCopies(value) {
+            const parsedValue = Number.parseInt(value, 10);
+            orderCopies = Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : 1;
+            Object.values(selectedServices).forEach(service => {
+                service.copies = orderCopies;
+            });
+            renderServiceConfigs();
+            updateSummary();
+            updatePagePriceSummary();
+            syncFinalSummary();
+        }
+
+        function calculateOrderTotal() {
+            return Object.values(selectedServices).reduce((total, service) => total + serviceTotal(service), 0);
+        }
+
+        function serviceCalculation(service, pages = service.pages) {
+            const oneCopyTotal = Number(pages) * Number(service.price);
+            const total = serviceTotal(service, pages);
+            return `${pages} pages × KES ${Number(service.price).toFixed(0)} = KES ${oneCopyTotal.toFixed(0)} × ${service.copies} copies = KES ${total.toFixed(0)}`;
+        }
+
+        function renderServiceConfigs() {
+            const container = document.getElementById('service-configs');
+            const keys = Object.keys(selectedServices);
+            document.getElementById('step2-next').disabled = keys.length === 0;
+            if (keys.length === 0) {
+                container.innerHTML = '<p id="no-svc-msg" class="text-sm text-slate-400 italic">← Select at least one service above</p>';
+                return;
+            }
+            container.innerHTML = keys.map(id => {
+                const s = selectedServices[id];
+                const sub = serviceTotal(s).toFixed(0);
+                const quotedId = JSON.stringify(String(id));
+                return `<div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+      <div class="flex items-center justify-between mb-3"><p class="font-bold text-slate-800 text-sm">${s.name}</p><span class="text-xs text-blue-600 font-semibold">KES ${s.price}/page</span></div>
+        <div class="grid grid-cols-2 gap-3">
+        <div><label class="text-xs text-slate-500 font-semibold uppercase">Pages</label><input type="number" min="1" value="${s.pages}" onchange="updateService(${quotedId},'pages',this.value)" class="w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg text-sm text-center font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"></div>
+        <div><label class="text-xs text-slate-500 font-semibold uppercase">Color</label>
+          <select onchange="updateService(${quotedId},'color',this.value)" class="w-full mt-1 px-2 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+            <option value="B/W" ${s.color==='B/W'?'selected':''}>B/W</option><option value="Color" ${s.color==='Color'?'selected':''}>Color</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex justify-between items-center mt-3 pt-2 border-t border-slate-200"><span class="text-xs text-slate-500" id="sub-desc-${id}">${s.pages}pg × ${s.copies} × KES ${s.price}</span><span class="font-bold text-slate-800" id="sub-amt-${id}">KES ${sub}</span></div>
+    </div>`;
+            }).join('');
+        }
+
+        function updateService(id, field, value) {
+            if (!selectedServices[id]) return;
+            if (field === 'color') {
+                selectedServices[id][field] = value;
+            } else {
+                const parsedValue = Number.parseInt(value, 10);
+                selectedServices[id][field] = Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : 1;
+            }
+            const s = selectedServices[id];
+            const sub = serviceTotal(s).toFixed(0);
+            const descEl = document.getElementById('sub-desc-' + id);
+            const amtEl = document.getElementById('sub-amt-' + id);
+            if (descEl) descEl.textContent = `${s.pages}pg × ${s.copies} × KES ${s.price}`;
+            if (amtEl) amtEl.textContent = `KES ${sub}`;
+            updateSummary();
+            updatePagePriceSummary();
+            syncFinalSummary();
+        }
+
+        function updateSummary() {
+            const keys = Object.keys(selectedServices);
+            const summaryLines = document.getElementById('summary-lines');
+            const grandTotal = document.getElementById('grand-total');
+            if (keys.length === 0) {
+                summaryLines.innerHTML = '<p class="text-slate-400 italic">No services selected</p>';
+                grandTotal.textContent = 'KES 0';
+                return;
+            }
+            const total = calculateOrderTotal();
+            summaryLines.innerHTML = keys.map(id => {
+                const s = selectedServices[id];
+                const amt = serviceTotal(s);
+                return `<div class="flex justify-between gap-3"><span>${s.name} · ${serviceCalculation(s)}</span><span class="font-semibold whitespace-nowrap">KES ${amt.toFixed(0)}</span></div>`;
+            }).join('');
+            grandTotal.textContent = 'KES ' + total.toFixed(0);
+        }
+
+        function syncFinalSummary() {
+            const keys = Object.keys(selectedServices);
+            const total = calculateOrderTotal();
+            const lines = keys.map(id => {
+                const s = selectedServices[id];
+                const amt = serviceTotal(s);
+                return `<div class="flex justify-between gap-3"><span>${s.name} · ${serviceCalculation(s)}</span><span class="font-semibold whitespace-nowrap">KES ${amt.toFixed(0)}</span></div>`;
+            }).join('');
+            const selectedPagesEl = document.getElementById('selected-pages-display');
+            const pageInfo = pageSelectionMode === 'specific' && selectedPageRanges.length && selectedPagesEl ?
+                `Selected pages: ${selectedPagesEl.textContent}` :
+                `Selected pages: All`;
+            const orientationInfo = `Orientation: ${layout.replace('-', ' ')}`;
+            const paperInfo = `Paper size: ${paperSize}`;
+            const sidedInfo = `Print sides: ${sided === 'two-sided' ? 'Double-sided' : 'One-sided'}`;
+            const editInfo = `Edit permission: ${allowEdit ? 'Allowed' : 'Not allowed'}`;
+            const finalSummaryEl = document.getElementById('final-summary');
+            const finalTotalEl = document.getElementById('final-total');
+            if (finalSummaryEl) finalSummaryEl.innerHTML = `${lines}
+              <div class="mt-3 text-xs text-slate-500 space-y-1">
+                <div>${pageInfo}</div>
+                <div>${orientationInfo}</div>
+                <div>${paperInfo}</div>
+                <div>${sidedInfo}</div>
+                <div>${editInfo}</div>
+              </div>`;
+            if (finalTotalEl) finalTotalEl.textContent = 'KES ' + total.toFixed(0);
+        }
+
+        function selectPay(method) {
+            selectedPayment = method;
+            document.getElementById('pay-mpesa-label').className = `flex items-center gap-4 p-5 border-2 ${method==='mpesa'?'border-blue-600 bg-blue-50':'border-slate-200'} rounded-2xl cursor-pointer transition`;
+            document.getElementById('pay-cash-label').className = `flex items-center gap-4 p-5 border-2 ${method==='cash'?'border-blue-600 bg-blue-50':'border-slate-200'} rounded-2xl cursor-pointer hover:border-blue-400 transition`;
+        }
+
+        async function placeOrder() {
+            const btn = document.getElementById('place-order-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            goToStep(5);
+            document.getElementById('processing-state').classList.remove('hidden');
+            document.getElementById('mpesa-wait-state').classList.add('hidden');
+            document.getElementById('success-state').classList.add('hidden');
+
+            const servicesArr = Object.values(selectedServices).map(s => ({
+                id: s.id,
+                pages: s.pages,
+                copies: s.copies,
+                color: s.color
+            }));
+            const phone = document.getElementById('customer-phone').value.trim();
+            const custName = document.getElementById('customer-name').value.trim();
+
+            const form = new FormData();
+            form.append('owner_id', owner.id);
+            form.append('customer_phone', phone);
+            form.append('customer_name', custName);
+            form.append('customer_email', document.getElementById('customer-email').value.trim());
+            form.append('services_json', JSON.stringify(servicesArr));
+            form.append('payment_method', selectedPayment);
+            const editedName = document.getElementById('document-name-input') ? document.getElementById('document-name-input').value.trim() : '';
+            form.append('file_name', editedName || uploadedFile.documentName || uploadedFile.name);
+            if (uploadedFile.blob) form.append('file', uploadedFile.blob);
+            form.append('orientation', layout);
+            form.append('paper_size', paperSize);
+            form.append('sided', sided);
+            form.append('allow_edit', allowEdit ? 'yes' : 'no');
+            form.append('selected_pages', pageSelectionMode === 'specific' ? document.getElementById('page-range-input').value.trim() : 'all');
+            const selectedPageCount = pageSelectionMode === 'specific' ? getSelectedPageCount() : (uploadedFile.pages || 1);
+            form.append('page_count', String(selectedPageCount));
+
+            let order;
+            try {
+                const res = await API.placeOrder(form);
+                order = res.order;
+                currentOrderId = order.id;
+            } catch (err) {
+                showToast(err.message, true);
+                goToStep(4);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-paper-plane"></i> Place Order';
+                return;
+            }
+
+            // metadata already appended before placing the order
+
+            if (selectedPayment === 'mpesa') {
+                document.getElementById('processing-state').classList.add('hidden');
+                document.getElementById('mpesa-wait-state').classList.remove('hidden');
+                document.getElementById('mpesa-wait-amount').textContent = money(order.total_price);
+                const phoneForPayment = normalizePhone(phone);
+                try {
+                    await API.stkPush(order.id, phoneForPayment);
+                } catch (err) {
+                    showPaymentRetry(err.message);
+                    return;
+                }
+                const paymentResult = await pollPayment(order.id);
+                const updated = await API.getOrder(order.id);
+                order = updated.order;
+                if (paymentResult === 'paid') finishOrder(order, true);
+                else showPaymentRetry(order.payment_error || 'Payment was not completed.');
+                return;
+            }
+
+            finishOrder(order, true);
+        }
+
+        function normalizePhone(phone) {
+            const value = String(phone || '').replace(/\s+/g, '');
+            if (value.startsWith('07') || value.startsWith('01')) return '254' + value.slice(1);
+            if (value.startsWith('+254')) return value.slice(1);
+            return value;
+        }
+
+        async function pollPayment(orderId) {
+            for (let i = 0; i < 50; i++) {
+                await new Promise(r => setTimeout(r, 1200));
+                try {
+                    const { payment_status } = await API.paymentStatus(orderId);
+                    if (['paid', 'failed'].includes(payment_status)) return payment_status;
+                } catch {
+                    return 'failed';
+                }
+            }
+            return 'failed';
+        }
+
+        function showPaymentRetry(message) {
+            document.getElementById('processing-state').classList.add('hidden');
+            document.getElementById('mpesa-payment-error').textContent = message;
+            document.getElementById('mpesa-payment-error').classList.remove('hidden');
+            document.getElementById('payment-retry-actions').classList.remove('hidden');
+            document.getElementById('retry-phone').value = document.getElementById('customer-phone').value.trim();
+        }
+
+        async function retryPayment() {
+            const phone = document.getElementById('retry-phone').value.trim();
+            document.getElementById('customer-phone').value = phone;
+            document.getElementById('payment-retry-actions').classList.add('hidden');
+            document.getElementById('mpesa-payment-error').classList.add('hidden');
+            document.getElementById('processing-state').classList.remove('hidden');
+            document.getElementById('mpesa-wait-state').classList.remove('hidden');
+            try {
+                await API.stkPush(currentOrderId, normalizePhone(phone));
+                const result = await pollPayment(currentOrderId);
+                const response = await API.getOrder(currentOrderId);
+                if (result === 'paid') finishOrder(response.order, true);
+                else showPaymentRetry(response.order.payment_error || 'Payment was not completed.');
+            } catch (err) {
+                showPaymentRetry(err.message);
+            }
+        }
+
+        async function chooseCashAfterFailure() {
+            try {
+                const response = await API.setPaymentMethod(currentOrderId, 'cash');
+                selectedPayment = 'cash';
+                finishOrder(response.order, false);
+            } catch (err) {
+                showPaymentRetry(err.message);
+            }
+        }
+
+        function getSelectedPageCount() {
+            const total = uploadedFile.pages || 1;
+            if (pageSelectionMode !== 'specific') return total;
+            const pages = [...new Set((selectedPreviewPages.length ? selectedPreviewPages : []).concat(selectedPageRanges.flatMap(([start, end]) => {
+                const range = [];
+                for (let i = Math.max(1, start); i <= Math.min(total, end); i += 1) range.push(i);
+                return range;
+            })))].sort((a, b) => a - b);
+            return pages.length || total;
+        }
+
+        function syncServicePageCountsToSelectedPages() {
+            const pageCount = getSelectedPageCount();
+            Object.values(selectedServices).forEach(svc => {
+                svc.pages = pageCount;
+            });
+            renderServiceConfigs();
+            updateSummary();
+            updatePagePriceSummary();
+        }
+
+        function updatePagePriceSummary() {
+            const summaryBox = document.getElementById('page-price-summary');
+            const linesEl = document.getElementById('page-price-lines');
+            const totalEl = document.getElementById('page-price-total');
+            if (!summaryBox || !linesEl || !totalEl) return;
+
+            const pageCount = getSelectedPageCount();
+            const keys = Object.keys(selectedServices);
+
+            // Always show the summary box once a file is uploaded
+            if (!uploadedFile.blob && uploadedFile.name !== 'Brought in person / USB') {
+                summaryBox.classList.add('hidden');
+                return;
+            }
+            summaryBox.classList.remove('hidden');
+
+            if (keys.length === 0) {
+                linesEl.innerHTML = '<p class="text-slate-400 italic">No services selected yet</p>';
+                totalEl.textContent = 'KES 0';
+                return;
+            }
+
+            let total = 0;
+            linesEl.innerHTML = keys.map(id => {
+                const s = selectedServices[id];
+                const amt = serviceTotal(s, pageCount);
+                total += amt;
+                return `<div class="flex justify-between gap-3"><span>${s.name} · ${serviceCalculation(s, pageCount)}</span><span class="font-semibold whitespace-nowrap">KES ${amt.toFixed(0)}</span></div>`;
+            }).join('');
+            totalEl.textContent = 'KES ' + total.toFixed(0);
+        }
+
+        function finishOrder(order, paid = false) {
+            document.getElementById('processing-state').classList.add('hidden');
+            document.getElementById('mpesa-wait-state').classList.add('hidden');
+            document.getElementById('success-state').classList.remove('hidden');
+            document.getElementById('confirm-small-id').textContent = order.small_order_id;
+            document.getElementById('confirm-order-code').textContent = order.order_code;
+            if (selectedPayment === 'cash') {
+                document.getElementById('confirm-payment-note').innerHTML = '<span class="text-amber-600 font-semibold"><i class="fas fa-money-bill-wave"></i> Pay KES ' + Math.round(order.total_price) + ' cash at the counter</span>';
+            } else if (paid) {
+                document.getElementById('confirm-payment-note').innerHTML = '<span class="text-emerald-600 font-semibold"><i class="fas fa-circle-check"></i> M-Pesa payment received</span>';
+            } else {
+                document.getElementById('confirm-payment-note').innerHTML = '<span class="text-amber-700 font-semibold"><i class="fas fa-clock"></i> Payment is pending. Check your phone or refresh this receipt in a moment.</span>';
+            }
+            document.getElementById('view-receipt-btn').href = `receipt.html?order_id=${order.id}`;
+            if (uploadedFile.blob) {
+                cleanupPreviewUrl();
+            }
+            setTimeout(() => {
+                window.location.href = `receipt.html?order_id=${order.id}`;
+            }, 1200);
+        }
+    </script>
+</body>
+
+</html>
