@@ -12,9 +12,69 @@ services:
         generateValue: true
       - key: FIREBASE_ENABLED
         value: "false"
+      - key: PORT
+        value: "10000"
       - key: ADMIN_EMAIL
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
       - key: FRONTEND_URL
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        sync: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: BUNI_ENABLED
+        value: "false"
+      - key: BUNI_API_KEY
+        sync: false
+      - key: BUNI_BASE_URL
+        value: https://uat.buni.kcbgroup.com
+      - key: BUNI_MPESA_EXPRESS_PATH
+        value: /mm/api/request/1.0.0
+      - key: BUNI_FUNDS_TRANSFER_PATH
+        value: /fundstransfer/1.0.0
+      - key: BUNI_TILL_NUMBER
+        sync: false
+      - key: BUNI_SHARED_SHORT_CODE
+        value: "true"
+      - key: BUNI_ORG_SHORT_CODE
+        sync: false
+      - key: BUNI_ORG_PASS_KEY
+        sync: false
+      - key: BUNI_TRANSACTION_DESCRIPTION
+        value: PrintFlow payment
+      - key: BUNI_CONSUMER_KEY
+        sync: false
+      - key: BUNI_CONSUMER_SECRET
+        sync: false
+      - key: BUNI_TOKEN_URL
+        value: https://uat.buni.kcbgroup.com/token?grant_type=client_credentials
+      - key: BUNI_REVOKE_URL
+        value: https://accounts.buni.kcbgroup.com/oauth2/revoke
+      - key: BUNI_PAYMENT_URL
+        sync: false
+      - key: BUNI_CALLBACK_URL
+        sync: false
+      - key: MPESA_ENV
+        value: sandbox
+      - key: MPESA_CONSUMER_KEY
+        sync: false
+      - key: MPESA_CONSUMER_SECRET
+        sync: false
+      - key: MPESA_SHORTCODE
+        sync: false
+      - key: MPESA_PASSKEY
+        sync: false
+      - key: MPESA_CALLBACK_URL
         sync: false
