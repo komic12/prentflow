@@ -80,7 +80,7 @@ router.post('/register', async(req, res) => {
             id: authUser ? authUser.id : undefined,
             name,
             email,
-            password_hash: authUser ? '' : bcrypt.hashSync(password, 10),
+            password_hash: bcrypt.hashSync(password, 10),
             role: 'owner',
             shop_name,
             phone: phone || '',
@@ -124,7 +124,10 @@ router.post('/login', async(req, res) => {
         const envAdminPassword = (process.env.ADMIN_PASSWORD || 'admin123').trim();
         let passwordValid = !!user && !!user.password_hash && bcrypt.compareSync(password, user.password_hash);
         if (user && user.role !== 'admin' && supabaseConfigured && process.env.SUPABASE_ENABLED !== 'false') {
-            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            const { error } = await Promise.race([
+                supabase.auth.signInWithPassword({ email, password }),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Supabase Auth timed out.')), 5000))
+            ]);
             passwordValid = !error;
         }
         const envAdminValid = email === envAdminEmail && password === envAdminPassword;
