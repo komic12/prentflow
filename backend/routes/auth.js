@@ -7,6 +7,7 @@ const multer = require('multer');
 const db = require('../db/database');
 const { publicUser } = require('../db/helpers');
 const { sendMail } = require('../lib/mailer');
+const { supabase, supabaseConfigured } = require('../db/supabase');
 
 const router = express.Router();
 const PROFILE_UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'profiles');
@@ -50,10 +51,23 @@ router.post('/register', async(req, res) => {
         const existing = await db.getUserByEmail(email);
         if (existing) return res.status(409).json({ error: 'Email already registered.' });
 
+        let authUser = null;
+        if (supabaseConfigured && process.env.SUPABASE_ENABLED !== 'false') {
+            const { data, error } = await supabase.auth.admin.createUser({
+                email,
+                password,
+                email_confirm: process.env.SUPABASE_AUTO_CONFIRM_EMAIL !== 'false',
+                user_metadata: { name, shop_name, phone: phone || '', location: location || '' }
+            });
+            if (error) return res.status(error.status === 422 ? 409 : 400).json({ error: error.message });
+            authUser = data.user;
+        }
+
         const owner = await db.createOwner({
+            id: authUser ? authUser.id : undefined,
             name,
             email,
-            password_hash: bcrypt.hashSync(password, 10),
+            password_hash: authUser ? '' : bcrypt.hashSync(password, 10),
             role: 'owner',
             shop_name,
             phone: phone || '',
@@ -95,7 +109,11 @@ router.post('/login', async(req, res) => {
         const user = await db.getUserByEmail(email);
         const envAdminEmail = (process.env.ADMIN_EMAIL || 'printflow205@gmail.com').trim().toLowerCase();
         const envAdminPassword = (process.env.ADMIN_PASSWORD || 'admin123').trim();
-        const passwordValid = !!user && bcrypt.compareSync(password, user.password_hash);
+        let passwordValid = !!user && !!user.password_hash && bcrypt.compareSync(password, user.password_hash);
+        if (user && user.role !== 'admin' && supabaseConfigured && process.env.SUPABASE_ENABLED !== 'false') {
+            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            passwordValid = !error;
+        }
         const envAdminValid = email === envAdminEmail && password === envAdminPassword;
         if (!user || (!passwordValid && !envAdminValid)) {
             return res.status(401).json({ error: 'Invalid email or password.' });

@@ -2,9 +2,15 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const { PDFDocument } = require('pdf-lib');
-const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
 const admin = require('firebase-admin');
 const db = require('../db/database');
+const { supabase, supabaseConfigured, storageBucket } = require('../db/supabase');
+
+let pdfjsLibPromise;
+async function getPdfjsLib() {
+    if (!pdfjsLibPromise) pdfjsLibPromise = import('pdfjs-dist/legacy/build/pdf.mjs');
+    return pdfjsLibPromise;
+}
 
 const TEMP_DIR = path.join(__dirname, '..', 'uploads', 'document-processing');
 if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
@@ -15,7 +21,18 @@ function ensureBucket() {
     return bucket;
 }
 
-async function uploadBufferToFirebase(buffer, destinationPath, contentType = 'application/pdf') {
+async function uploadBufferToStorage(buffer, destinationPath, contentType = 'application/pdf') {
+    if (supabaseConfigured && process.env.SUPABASE_ENABLED !== 'false') {
+        if (!storageBucket) throw new Error('Supabase storage bucket is not configured.');
+        const { error } = await supabase.storage.from(storageBucket).upload(destinationPath, buffer, {
+            contentType,
+            upsert: true
+        });
+        if (error) throw error;
+        const { data, error: signedError } = await supabase.storage.from(storageBucket).createSignedUrl(destinationPath, 7 * 24 * 60 * 60);
+        if (signedError) throw signedError;
+        return { storagePath: destinationPath, signedUrl: data.signedUrl };
+    }
     const bucket = ensureBucket();
     const file = bucket.file(destinationPath);
     await file.save(buffer, {
@@ -33,13 +50,27 @@ async function uploadBufferToFirebase(buffer, destinationPath, contentType = 'ap
     return { storagePath: destinationPath, signedUrl };
 }
 
+async function downloadBufferFromStorage(storagePath) {
+    if (supabaseConfigured && process.env.SUPABASE_ENABLED !== 'false') {
+        if (!storageBucket) throw new Error('Supabase storage bucket is not configured.');
+        const { data, error } = await supabase.storage.from(storageBucket).download(storagePath);
+        if (error) throw error;
+        return Buffer.from(await data.arrayBuffer());
+    }
+    const bucket = ensureBucket();
+    const [buffer] = await bucket.file(storagePath).download();
+    return buffer;
+}
+
 async function countPdfPages(pdfBuffer) {
+    const pdfjsLib = await getPdfjsLib();
     const loadingTask = pdfjsLib.getDocument({ data: pdfBuffer });
     const pdf = await loadingTask.promise;
     return pdf.numPages || 0;
 }
 
 async function extractTextByPage(pdfBuffer) {
+    const pdfjsLib = await getPdfjsLib();
     const loadingTask = pdfjsLib.getDocument({ data: pdfBuffer });
     const pdf = await loadingTask.promise;
     const texts = [];
@@ -132,7 +163,7 @@ async function processDocumentUpload(file, ownerId) {
     const fileName = sanitizeFileName(file.originalname);
     const originalBuffer = fs.readFileSync(file.path);
     const originalStoragePath = `documents/${ownerId}/${Date.now()}-${fileName}`;
-    const originalUpload = await uploadBufferToFirebase(originalBuffer, originalStoragePath, file.mimetype || 'application/octet-stream');
+    const originalUpload = await uploadBufferToStorage(originalBuffer, originalStoragePath, file.mimetype || 'application/octet-stream');
 
     let pdfBuffer = originalBuffer;
     if (ext === '.doc' || ext === '.docx') {
@@ -159,7 +190,7 @@ async function processDocumentUpload(file, ownerId) {
         const pageNumber = pageIndex + 1;
         const pageId = `page_${document.id}_${pageNumber}`;
         const pagePath = `documents/${ownerId}/${document.id}/pages/page_${pageNumber}.pdf`;
-        await uploadBufferToFirebase(pageBuffers[pageIndex], pagePath, 'application/pdf');
+        await uploadBufferToStorage(pageBuffers[pageIndex], pagePath, 'application/pdf');
         const thumbnailUrl = `/api/documents/${document.id}/pages/${pageNumber}/thumbnail`;
 
         const page = await db.createPage({
@@ -186,6 +217,12 @@ async function processDocumentUpload(file, ownerId) {
 }
 
 async function getSignedUrlForPath(storagePath) {
+    if (supabaseConfigured && process.env.SUPABASE_ENABLED !== 'false') {
+        if (!storageBucket) throw new Error('Supabase storage bucket is not configured.');
+        const { data, error } = await supabase.storage.from(storageBucket).createSignedUrl(storagePath, 7 * 24 * 60 * 60);
+        if (error) throw error;
+        return data.signedUrl;
+    }
     const bucket = ensureBucket();
     const file = bucket.file(storagePath);
     const [signedUrl] = await file.getSignedUrl({
@@ -200,7 +237,8 @@ module.exports = {
     extractSelectedPages,
     createThumbnailSvg,
     getSignedUrlForPath,
-    uploadBufferToFirebase,
+    uploadBufferToFirebase: uploadBufferToStorage,
+    downloadBufferFromStorage,
     convertOfficeToPdf,
     countPdfPages
 };

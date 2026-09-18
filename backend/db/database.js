@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const admin = require('firebase-admin');
+const { supabase, supabaseConfigured, dataTable } = require('./supabase');
 
 const DATA_DIR = path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
@@ -15,6 +16,7 @@ const EVENTS_FILE = path.join(DATA_DIR, 'events.json');
 
 let firestore = null;
 let useFirestore = false;
+let useSupabase = false;
 
 function getFirebaseCredentials() {
     const rawJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
@@ -78,6 +80,14 @@ function normalizeFirestoreDoc(doc) {
 }
 
 async function readCollection(collectionName) {
+    if (useSupabase) {
+        const { data, error } = await supabase
+            .from(dataTable)
+            .select('id,data')
+            .eq('collection', collectionName);
+        if (error) throw error;
+        return (data || []).map(row => row.data || {}).filter(row => row.id);
+    }
     if (useFirestore && firestore) {
         const snapshot = await firestore.collection(collectionName).get();
         return snapshot.docs.map(normalizeFirestoreDoc);
@@ -86,6 +96,22 @@ async function readCollection(collectionName) {
 }
 
 async function writeCollection(collectionName, docs) {
+    if (useSupabase) {
+        const { error: deleteError } = await supabase
+            .from(dataTable)
+            .delete()
+            .eq('collection', collectionName);
+        if (deleteError) throw deleteError;
+        if (!docs.length) return;
+        const rows = docs.filter(doc => doc && doc.id).map(doc => ({
+            collection: collectionName,
+            id: String(doc.id),
+            data: doc
+        }));
+        const { error } = await supabase.from(dataTable).insert(rows);
+        if (error) throw error;
+        return;
+    }
     if (useFirestore && firestore) {
         const batch = firestore.batch();
         const col = firestore.collection(collectionName);
@@ -143,6 +169,14 @@ async function initFirestore() {
     }
 }
 
+function initSupabase() {
+    if (process.env.SUPABASE_ENABLED === 'false') return false;
+    if (!supabaseConfigured) return false;
+    useSupabase = true;
+    console.log(`Supabase database enabled (${dataTable}).`);
+    return true;
+}
+
 function ensureDataFile(filePath, initialValue) {
     if (!fs.existsSync(filePath)) {
         fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -178,9 +212,9 @@ function normalizeOtp(value) {
 }
 
 async function initialize() {
-    await initFirestore();
+    if (!initSupabase()) await initFirestore();
 
-    if (!useFirestore) {
+    if (!useFirestore && !useSupabase) {
         ensureDataFile(USERS_FILE, []);
         ensureDataFile(SERVICES_FILE, []);
         ensureDataFile(ORDERS_FILE, []);

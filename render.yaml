@@ -46,12 +46,18 @@ services:
         sync: false
       - key: SUPABASE_URL
         sync: false
+      - key: SUPABASE_ENABLED
+        value: "true"
       - key: SUPABASE_PUBLIC_ANON_KEY
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: SUPABASE_STORAGE_BUCKET
         sync: false
+      - key: SUPABASE_DATA_TABLE
+        value: printflow_records
+      - key: SUPABASE_AUTO_CONFIRM_EMAIL
+        value: "true"
       - key: EMAIL_USER
         sync: false
       - key: EMAIL_PASS

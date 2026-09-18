@@ -73,6 +73,16 @@ run using `ADMIN_EMAIL`/`ADMIN_PASSWORD` from `.env` (defaults to
 sign in through the same "Sign In" form as owners; the server checks the role and
 sends them to the right dashboard.
 
+## Supabase setup
+
+Supabase can provide Auth, database records, and private document storage. Copy the
+Supabase values into `backend/.env`, set `SUPABASE_ENABLED=true`, and run
+`backend/supabase-schema.sql` once in the Supabase SQL editor. Create a private Storage
+bucket named by `SUPABASE_STORAGE_BUCKET` (the template uses `printflowdoc`). The
+backend uses the service-role key only; never expose that key in frontend code or commit
+it to source control. Existing local JSON/Firebase mode remains available with
+`SUPABASE_ENABLED=false`.
+
 ## Roles
 
 - **Customer** — no account needed. Scans a cafe's QR code (or finds it via

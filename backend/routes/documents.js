@@ -5,7 +5,7 @@ const multer = require('multer');
 const admin = require('firebase-admin');
 const db = require('../db/database');
 const { requireAuth } = require('../middleware/auth');
-const { processDocumentUpload, extractSelectedPages, createThumbnailSvg, getSignedUrlForPath, uploadBufferToFirebase } = require('../services/documentService');
+const { processDocumentUpload, extractSelectedPages, createThumbnailSvg, getSignedUrlForPath, uploadBufferToFirebase, downloadBufferFromStorage } = require('../services/documentService');
 
 const router = express.Router();
 const UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'documents', 'incoming');
@@ -137,9 +137,7 @@ router.post('/:id/extract', requireAuth, async(req, res) => {
         const selectedPages = Array.isArray(req.body.selectedPages) ? req.body.selectedPages : [];
         if (!selectedPages.length) return res.status(400).json({ error: 'No pages selected.' });
 
-        const bucket = admin.storage().bucket();
-        const file = bucket.file(document.storagePath);
-        const [buffer] = await file.download();
+        const buffer = await downloadBufferFromStorage(document.storagePath);
         const extractedPdf = await extractSelectedPages(buffer, selectedPages);
 
         if (req.query.download === '1') {
@@ -165,9 +163,7 @@ router.post('/:id/submit', requireAuth, async(req, res) => {
         const selectedPages = Array.isArray(req.body.selectedPages) ? req.body.selectedPages : [];
         if (!selectedPages.length) return res.status(400).json({ error: 'No pages selected.' });
 
-        const bucket = admin.storage().bucket();
-        const file = bucket.file(document.storagePath);
-        const [buffer] = await file.download();
+        const buffer = await downloadBufferFromStorage(document.storagePath);
         const extractedPdf = await extractSelectedPages(buffer, selectedPages);
 
         const submission = await db.createSubmission({
