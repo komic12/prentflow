@@ -56,6 +56,8 @@ services:
         sync: false
       - key: SUPABASE_DATA_TABLE
         value: printflow_records
+      - key: SUPABASE_SESSION_TABLE
+        value: printflow_sessions
       - key: SUPABASE_AUTO_CONFIRM_EMAIL
         value: "true"
       - key: EMAIL_USER

@@ -99,7 +99,15 @@ it to source control. Existing local JSON/Firebase mode remains available with
 
 - `db/printflow.db` and `uploads/` are created automatically and are **not** committed
   (see `.gitignore`). Back these up — they're your real data.
-- When Supabase is enabled, sessions are persisted in the Supabase-backed records
+- Before the first Render deploy, run all of `backend/supabase-schema.sql` in the
+  Supabase SQL editor. This creates both `printflow_records` and
+  `printflow_sessions`; without the session table, login persistence fails with a
+  `PGRST205` schema-cache error.
+- In Render, set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and
+  `SUPABASE_STORAGE_BUCKET` as secret environment variables. Keep
+  `SUPABASE_DATA_TABLE=printflow_records` and
+  `SUPABASE_SESSION_TABLE=printflow_sessions`.
+- When Supabase is enabled, sessions are persisted in the Supabase-backed session
   table so Render restarts and multiple instances can share login state.
 - Set `NODE_ENV=production` and put this behind HTTPS (e.g. via a reverse proxy) so
   session cookies are sent securely.

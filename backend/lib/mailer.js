@@ -2,6 +2,9 @@ const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
     service: 'gmail',
+    connectionTimeout: 5000,
+    greetingTimeout: 5000,
+    socketTimeout: 5000,
     auth: {
         user: process.env.EMAIL_USER || 'printflow205@gmail.com',
         pass: process.env.EMAIL_PASS || 'txmh aklm tjfi eemq'
