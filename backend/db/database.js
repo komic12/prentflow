@@ -401,6 +401,12 @@ async function findOwnerById(id) {
     return owner && owner.role === 'owner' ? owner : null;
 }
 
+async function findOwnerByAgentTokenHash(tokenHash) {
+    const owners = await readCollection('users');
+    const owner = owners.find(user => user.role === 'owner' && user.print_agent_token_hash === tokenHash);
+    return normalizeRow(owner || null);
+}
+
 async function getOwnerPublicById(id) {
     const owner = await findOwnerById(id);
     if (!owner) return null;
@@ -753,6 +759,7 @@ module.exports = {
     createOwner,
     updateUserProfile,
     findOwnerById,
+    findOwnerByAgentTokenHash,
     getOwnerPublicById,
     searchActiveOwners,
     listOwners,

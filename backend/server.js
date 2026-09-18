@@ -4,6 +4,7 @@ const path = require('path');
 const express = require('express');
 const session = require('express-session');
 const db = require('./db/database');
+const { createSessionStore } = require('./db/supabase-session-store');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -45,6 +46,7 @@ app.use(express.urlencoded({ extended: true }));
 app.set('trust proxy', 1);
 app.use(session({
     secret: process.env.SESSION_SECRET || 'printflow-dev-secret-change-me',
+    store: createSessionStore(),
     resave: false,
     saveUninitialized: false,
     cookie: {

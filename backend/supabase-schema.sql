@@ -14,4 +14,15 @@ create index if not exists printflow_records_collection_idx
 
 alter table public.printflow_records enable row level security;
 
+create table if not exists public.printflow_sessions (
+    sid text primary key,
+    sess jsonb not null,
+    expire timestamptz not null
+);
+
+create index if not exists printflow_sessions_expire_idx
+    on public.printflow_sessions (expire);
+
+alter table public.printflow_sessions enable row level security;
+
 -- The backend uses the service-role key, so browser clients cannot read this table directly.

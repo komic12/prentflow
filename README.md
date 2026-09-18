@@ -99,7 +99,7 @@ it to source control. Existing local JSON/Firebase mode remains available with
 
 - `db/printflow.db` and `uploads/` are created automatically and are **not** committed
   (see `.gitignore`). Back these up — they're your real data.
-- Sessions currently use the default in-memory-adjacent SQLite session store, which is
-  fine for a single small server. If you outgrow one process, move sessions to Redis.
+- When Supabase is enabled, sessions are persisted in the Supabase-backed records
+  table so Render restarts and multiple instances can share login state.
 - Set `NODE_ENV=production` and put this behind HTTPS (e.g. via a reverse proxy) so
   session cookies are sent securely.

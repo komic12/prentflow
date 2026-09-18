@@ -7,14 +7,14 @@ const multer = require('multer');
 const db = require('../db/database');
 const { publicUser } = require('../db/helpers');
 const { sendMail } = require('../lib/mailer');
-const { supabase, supabaseConfigured } = require('../db/supabase');
+const { supabase, supabaseConfigured, storageBucket } = require('../db/supabase');
 
 const router = express.Router();
 const PROFILE_UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'profiles');
 if (!fs.existsSync(PROFILE_UPLOAD_DIR)) fs.mkdirSync(PROFILE_UPLOAD_DIR, { recursive: true });
 
 const profileUpload = multer({
-    storage: multer.diskStorage({
+    storage: supabaseConfigured && process.env.SUPABASE_ENABLED !== 'false' ? multer.memoryStorage() : multer.diskStorage({
         destination: (_req, _file, cb) => cb(null, PROFILE_UPLOAD_DIR),
         filename: (_req, file, cb) => {
             const ext = path.extname(file.originalname) || '.jpg';
@@ -243,7 +243,21 @@ router.patch('/profile', profileUpload.single('profile_image'), async(req, res) 
             phone: (phone || '').trim(),
             location: (location || '').trim()
         };
-        if (req.file) updates.profile_image = req.file.filename;
+        if (req.file) {
+            if (supabaseConfigured && process.env.SUPABASE_ENABLED !== 'false') {
+                const storagePath = `profiles/${req.session.user.id}/${Date.now()}${path.extname(req.file.originalname) || '.jpg'}`;
+                const { error } = await supabase.storage.from(storageBucket).upload(storagePath, req.file.buffer, {
+                    contentType: req.file.mimetype,
+                    upsert: true
+                });
+                if (error) throw error;
+                const { data, error: signedError } = await supabase.storage.from(storageBucket).createSignedUrl(storagePath, 7 * 24 * 60 * 60);
+                if (signedError) throw signedError;
+                updates.profile_image = data.signedUrl;
+            } else {
+                updates.profile_image = req.file.filename;
+            }
+        }
 
         const user = await db.updateUserProfile(req.session.user.id, updates);
         res.json({ user: publicUser(user) });

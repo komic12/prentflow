@@ -5,15 +5,17 @@ const http = require('http');
 const db = require('../db/database');
 
 const router = express.Router();
-const tokenCache = new Map();
 const STATUS_FLOW = { pending: 'seen', seen: 'printing', printing: 'printed', printed: 'ready' };
 
 function hashToken(token) {
     return crypto.createHash('sha256').update(token).digest('hex');
 }
-function issueToken(owner) {
+async function issueToken(owner) {
     const token = crypto.randomBytes(32).toString('hex');
-    tokenCache.set(hashToken(token), { ownerId: owner.id, expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000 });
+    await db.updateUserProfile(owner.id, {
+        print_agent_token_hash: hashToken(token),
+        print_agent_token_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    });
     return token;
 }
 function getBearer(req) {
@@ -23,9 +25,8 @@ function getBearer(req) {
 async function requireAgent(req, res, next) {
     const token = getBearer(req);
     if (!token) return res.status(401).json({ error: 'Agent token required.' });
-    const cached = tokenCache.get(hashToken(token));
-    if (!cached || cached.expiresAt < Date.now()) return res.status(401).json({ error: 'Agent token expired. Please sign in again.' });
-    const owner = await db.findOwnerById(cached.ownerId);
+    const owner = await db.findOwnerByAgentTokenHash(hashToken(token));
+    if (!owner || !owner.print_agent_token_expires_at || new Date(owner.print_agent_token_expires_at).getTime() < Date.now()) return res.status(401).json({ error: 'Agent token expired. Please sign in again.' });
     if (!owner || owner.status !== 'Active') return res.status(403).json({ error: 'Owner account is not active.' });
     req.agentOwner = owner;
     req.agentToken = token;
@@ -50,7 +51,7 @@ router.post('/auth/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid cyber owner email or password.' });
         }
         if (user.status !== 'Active') return res.status(403).json({ error: `Account is ${user.status}.` });
-        const token = issueToken(user);
+        const token = await issueToken(user);
         await db.updateUserProfile(user.id, {
             print_agent_connected: true,
             print_agent_last_seen: new Date().toISOString(),
@@ -64,8 +65,7 @@ router.post('/auth/login', async (req, res) => {
 });
 
 router.post('/auth/logout', requireAgent, async (req, res) => {
-    tokenCache.delete(hashToken(req.agentToken));
-    await db.updateUserProfile(req.agentOwner.id, { print_agent_connected: false, print_agent_last_seen: new Date().toISOString() });
+    await db.updateUserProfile(req.agentOwner.id, { print_agent_token_hash: null, print_agent_token_expires_at: null, print_agent_connected: false, print_agent_last_seen: new Date().toISOString() });
     res.json({ ok: true });
 });
 
