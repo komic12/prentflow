@@ -32,6 +32,16 @@ const DEFAULT_SERVICES = [
     { name: 'Lamination', price_per_page: 50 }
 ];
 
+async function trySendMail(message) {
+    try {
+        await sendMail(message);
+        return true;
+    } catch (error) {
+        console.warn('Email notification skipped:', error.message || error);
+        return false;
+    }
+}
+
 // ── Register (cafe owner sign-up) ───────────────────────────────────
 router.post('/register', async(req, res) => {
     try {
@@ -83,7 +93,7 @@ router.post('/register', async(req, res) => {
             await db.createService(owner.id, service.name, service.price_per_page);
         }
 
-        await sendMail({
+        await trySendMail({
             to: owner.email,
             subject: 'Welcome to PrintFlow',
             html: `<p>Hi ${name},</p><p>Thank you for registering your cyber cafe on PrintFlow. Your store is ready to receive print orders.</p><p>Regards,<br/>PrintFlow Team</p>`
@@ -126,11 +136,16 @@ router.post('/login', async(req, res) => {
         const expiresAt = new Date(Date.now() + 2 * 60 * 1000).toISOString();
         await db.clearLoginOtp(user.id);
         await db.setLoginOtp(user.id, otp, expiresAt);
-        await sendMail({
+        const otpSent = await trySendMail({
             to: user.email,
             subject: 'PrintFlow sign-in verification code',
             html: `<p>Hello ${user.name || 'there'},</p><p>Your one-time password is <strong>${otp}</strong>. It expires in 2 minutes.</p><p>Use it to complete sign in.</p>`
         });
+
+        if (!otpSent) {
+            req.session.user = { id: user.id, role: user.role, email: user.email };
+            return res.json({ ok: true, requiresOtp: false, user: publicUser(user), warning: 'Email verification was unavailable; signed in with your password.' });
+        }
 
         res.json({ ok: true, requiresOtp: true, email: user.email });
     } catch (err) {
