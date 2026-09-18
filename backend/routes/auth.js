@@ -132,6 +132,11 @@ router.post('/login', async(req, res) => {
             return res.status(403).json({ error: `Account is ${user.status}. Contact admin.` });
         }
 
+        if (user.role === 'admin' || envAdminValid) {
+            req.session.user = { id: user.id, role: user.role, email: user.email };
+            return res.json({ ok: true, requiresOtp: false, user: publicUser(user) });
+        }
+
         const otp = String(Math.floor(100000 + Math.random() * 900000)).padStart(6, '0');
         const expiresAt = new Date(Date.now() + 2 * 60 * 1000).toISOString();
         await db.clearLoginOtp(user.id);
